@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { CheckCircle, XCircle, Loader, User, Settings, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, Loader, AlertTriangle, User } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 const EmailConfirmation: React.FC = () => {
@@ -10,162 +10,103 @@ const EmailConfirmation: React.FC = () => {
   const location = useLocation();
 
   useEffect(() => {
-    const handleEmailConfirmation = async () => {
+    const confirmEmail = async () => {
       try {
-        // Get parameters from both URL and hash
-        const urlParams = new URLSearchParams(location.search);
-        const hashParams = new URLSearchParams(location.hash.substring(1));
-        
-        // Check URL parameters first
-        const code = urlParams.get('code');
-        const type = urlParams.get('type');
-        const token = urlParams.get('token');
-        
-        // Then check hash parameters
+        const queryParams = new URLSearchParams(location.search);
+        const hashParams = new URLSearchParams(location.hash.replace('#', ''));
+
+        const code = queryParams.get('code');
+        const type = queryParams.get('type');
+
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
-        const hashType = hashParams.get('type');
-        const errorParam = hashParams.get('error');
+        const error = hashParams.get('error');
         const errorDescription = hashParams.get('error_description');
 
-        console.log('Email confirmation params:', {
-          code,
-          type,
-          token,
-          hashType,
-          errorParam,
-          errorDescription, 
-          hasTokens: !!(accessToken && refreshToken)
-        });
-
-        // Handle errors from Supabase
-        if (errorParam) {
-          if (errorParam === 'access_denied' && errorDescription?.includes('already_confirmed')) {
+        // Handle Supabase errors
+        if (error) {
+          if (error === 'access_denied' && errorDescription?.includes('already_confirmed')) {
             setStatus('already_confirmed');
-            setMessage('Your email is already confirmed! You can sign in now.');
+            setMessage('Your email is already confirmed. Please sign in.');
             return;
           }
-          if (errorParam === 'invalid_grant' || errorDescription?.includes('expired')) {
-            throw new Error('Your verification link has expired. Please sign up again to get a new verification link.');
-          }
-          throw new Error(errorDescription || errorParam);
+          throw new Error(errorDescription || 'Email confirmation failed.');
         }
 
-        // Handle email confirmation with code parameter
+        // 🔹 Case 1: Code-based confirmation (NEW Supabase default)
         if (code && type === 'signup') {
-          console.log('Processing email confirmation with code...');
-
-          // First verify the OTP to establish session
-          const { data, error: verifyError } = await supabase.auth.verifyOtp({
+          const { data, error } = await supabase.auth.verifyOtp({
             token_hash: code,
-            type: 'signup'
+            type: 'signup',
           });
 
-          if (verifyError) {
-            console.error('Code verification error:', verifyError);
-            // Check if it's an expiration error
-            if (verifyError.message?.includes('expired') || verifyError.message?.includes('invalid')) {
-              throw new Error('Your verification link has expired. Please sign up again to get a new verification link.');
-            }
-            throw verifyError;
-          }
+          if (error) throw error;
 
-          if (data.user) {
-            console.log('User confirmed successfully with code:', data.user.email);
-
-            // Create user profile with verification_submitted set to false initially
-            const { error: profileError } = await supabase
-              .from('users')
-              .upsert({
+          if (data?.user) {
+            await supabase.from('users').upsert(
+              {
                 id: data.user.id,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
                 profile_completed: false,
-                verification_submitted: false
-              }, {
-                onConflict: 'id'
-              });
-
-            if (profileError) {
-              console.error('Profile creation error:', profileError);
-            }
+                verification_submitted: false,
+              },
+              { onConflict: 'id' }
+            );
 
             setStatus('success');
-            setMessage('Email confirmed successfully! You can now sign in with your credentials.');
+            setMessage('Email confirmed successfully. You can now sign in.');
 
-            // Redirect to sign in after 3 seconds to allow user to read the message
-            setTimeout(() => {
-              navigate('/signin');
-            }, 3000);
-          } else {
-            throw new Error('No user data received');
+            setTimeout(() => navigate('/signin'), 3000);
+            return;
           }
         }
-        // Handle signup confirmation with tokens
-        else if ((type === 'signup' || !hashType) && accessToken && refreshToken) {
-          console.log('Processing signup confirmation with tokens...');
 
-          // Set the session with the tokens
-          const { data, error: sessionError } = await supabase.auth.setSession({
+        // 🔹 Case 2: Token-based confirmation (older / hash redirect)
+        if (accessToken && refreshToken) {
+          const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
-            refresh_token: refreshToken
+            refresh_token: refreshToken,
           });
 
-          if (sessionError) {
-            console.error('Session error:', sessionError);
-            if (sessionError.message?.includes('expired') || sessionError.message?.includes('invalid')) {
-              throw new Error('Your verification link has expired. Please sign up again to get a new verification link.');
-            }
-            throw sessionError;
-          }
+          if (error) throw error;
 
-          if (data.user) {
-            console.log('User confirmed successfully with tokens:', data.user.email);
-
-            // Create user profile
-            const { error: profileError } = await supabase
-              .from('users')
-              .upsert({
+          if (data?.user) {
+            await supabase.from('users').upsert(
+              {
                 id: data.user.id,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
                 profile_completed: false,
-                verification_submitted: false
-              }, {
-                onConflict: 'id'
-              });
-
-            if (profileError) {
-              console.error('Profile creation error:', profileError);
-            }
+                verification_submitted: false,
+              },
+              { onConflict: 'id' }
+            );
 
             setStatus('success');
-            setMessage('Email confirmed successfully! You can now sign in with your credentials.');
+            setMessage('Email confirmed successfully. Redirecting...');
 
-            // Redirect to sign in after 3 seconds
-            setTimeout(() => {
-              navigate('/signin');
-            }, 3000);
-          } else {
-            throw new Error('No user data received');
+            setTimeout(() => navigate('/signin'), 3000);
+            return;
           }
-        } else {
-          // Invalid confirmation data
-          throw new Error('Invalid confirmation link. Please check your email for the correct link.');
         }
-      } catch (error: any) {
-        console.error('Email confirmation error:', error);
+
+        throw new Error('Invalid or expired confirmation link.');
+      } catch (err: any) {
+        console.error('Email confirmation error:', err);
         setStatus('error');
-        setMessage(error.message || 'Failed to confirm email. Your verification link may have expired. Please sign up again to receive a new verification link.');
+        setMessage(
+          err.message ||
+            'Verification failed. The link may be expired. Please sign up again.'
+        );
       }
     };
 
-    // Check if there are auth parameters in URL or hash
     if (location.search || location.hash) {
-      handleEmailConfirmation();
+      confirmEmail();
     } else {
       setStatus('error');
-      setMessage('Invalid confirmation link. Please check your email for the correct link.');
+      setMessage('Invalid confirmation link.');
     }
   }, [location, navigate]);
 
@@ -174,104 +115,60 @@ const EmailConfirmation: React.FC = () => {
       <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
         {status === 'loading' && (
           <>
-            <Loader className="w-16 h-16 text-[#4A0E67] mx-auto mb-4 animate-spin" />
-            <h2 className="text-2xl font-bold text-[#4A0E67] mb-4">Confirming Email...</h2>
-            <p className="text-gray-600">Please wait while we confirm your email address.</p>
+            <Loader className="w-16 h-16 mx-auto mb-4 animate-spin text-[#4A0E67]" />
+            <h2 className="text-2xl font-bold text-[#4A0E67]">Confirming Email…</h2>
+            <p className="text-gray-600 mt-2">Please wait</p>
           </>
         )}
 
         {status === 'success' && (
           <>
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-[#4A0E67] mb-4">🎉 Email Confirmed Successfully!</h2>
-            <p className="text-gray-600 mb-6">{message}</p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <div className="flex items-center justify-center mb-2">
-                <User className="w-5 h-5 text-blue-600 mr-2" />
-                <p className="text-sm font-semibold text-blue-800">Next Step: Complete Your Profile</p>
-              </div>
-              <p className="text-sm text-blue-700">
-                You must complete your profile with all required information before you can list items. This ensures quality and trust in our marketplace.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <button
-                onClick={() => navigate('/signin')}
-                className="w-full bg-[#4A0E67] text-white py-3 px-4 rounded hover:bg-[#3a0b50] transition-colors flex items-center justify-center"
-              >
-                <User className="w-5 h-5 mr-2" />
-                Sign In Now
-              </button>
-              <button
-                onClick={() => navigate('/settings')}
-                className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded hover:bg-gray-200 transition-colors"
-              >
-                Complete Profile Later
-              </button>
-            </div>
+            <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
+            <h2 className="text-2xl font-bold text-[#4A0E67]">Email Confirmed 🎉</h2>
+            <p className="text-gray-600 mt-2">{message}</p>
+
+            <button
+              onClick={() => navigate('/signin')}
+              className="mt-6 w-full bg-[#4A0E67] text-white py-3 rounded hover:bg-[#3a0b50]"
+            >
+              <User className="inline mr-2 w-5 h-5" />
+              Sign In
+            </button>
           </>
         )}
 
         {status === 'already_confirmed' && (
           <>
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-[#4A0E67] mb-4">Already Confirmed!</h2>
-            <p className="text-gray-600 mb-6">{message}</p>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-              <div className="flex items-center justify-center mb-2">
-                <AlertTriangle className="w-5 h-5 text-yellow-600 mr-2" />
-                <p className="text-sm font-semibold text-yellow-800">Profile Required</p>
-              </div>
-              <p className="text-sm text-yellow-700">
-                Complete your profile to start listing items and unlock all features.
-              </p>
-            </div>
-            <div className="space-y-3">
-              <button
-                onClick={() => navigate('/signin')}
-                className="w-full bg-[#4A0E67] text-white py-2 px-4 rounded hover:bg-[#3a0b50] transition-colors"
-              >
-                Sign In Now
-              </button>
-              <button
-                onClick={() => navigate('/settings')}
-                className="w-full bg-[#F7941D] text-white py-2 px-4 rounded hover:bg-[#e68a1c] transition-colors"
-              >
-                Complete Profile
-              </button>
-            </div>
+            <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-500" />
+            <h2 className="text-2xl font-bold text-[#4A0E67]">Already Confirmed</h2>
+            <p className="text-gray-600 mt-2">{message}</p>
+
+            <button
+              onClick={() => navigate('/signin')}
+              className="mt-6 w-full bg-[#4A0E67] text-white py-3 rounded"
+            >
+              Sign In
+            </button>
           </>
         )}
 
         {status === 'error' && (
           <>
-            <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-[#4A0E67] mb-4">Confirmation Failed</h2>
-            <p className="text-gray-600 mb-6">{message}</p>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-              <div className="flex items-center justify-center mb-2">
-                <AlertTriangle className="w-5 h-5 text-red-600 mr-2" />
-                <p className="text-sm font-semibold text-red-800">Email Delivery Issues</p>
-              </div>
-              <p className="text-sm text-red-700">
-                <strong>Check your spam folder!</strong> Verification emails sometimes go to spam. 
-                Mark the email as "Not Spam\" and add lizexpressltd.com to your trusted senders.
-              </p>
+            <XCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
+            <h2 className="text-2xl font-bold text-[#4A0E67]">Confirmation Failed</h2>
+            <p className="text-gray-600 mt-2">{message}</p>
+
+            <div className="bg-red-50 border border-red-200 rounded p-4 mt-4 text-sm text-red-700">
+              <AlertTriangle className="inline w-4 h-4 mr-1" />
+              Check your spam folder or request a new signup link.
             </div>
-            <div className="space-y-3">
-              <button
-                onClick={() => navigate('/signin')}
-                className="w-full bg-[#4A0E67] text-white py-2 px-4 rounded hover:bg-[#3a0b50] transition-colors"
-              >
-                Try Sign In
-              </button>
-              <button
-                onClick={() => navigate('/signup')}
-                className="w-full bg-[#F7941D] text-white py-2 px-4 rounded hover:bg-[#e68a1c] transition-colors"
-              >
-                Sign Up Again
-              </button>
-            </div>
+
+            <button
+              onClick={() => navigate('/signup')}
+              className="mt-6 w-full bg-[#F7941D] text-white py-3 rounded"
+            >
+              Sign Up Again
+            </button>
           </>
         )}
       </div>
