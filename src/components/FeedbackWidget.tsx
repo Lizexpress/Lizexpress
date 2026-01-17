@@ -272,7 +272,7 @@ const FeedbackWidget: React.FC = () => {
                   <div className="mt-4 pt-4 border-t border-gray-200">
                     <p className="text-xs text-gray-500 text-center">
                       Need immediate help? Email us at{' '}
-                      <a href="mailto:lizexpressorg@gmail.com" className="text-[#4A0E67] hover:underline">
+                      <a href="mailto:lizzy@lizexpressltd.com" className="text-[#4A0E67] hover:underline">
                         lizexpressorg@gmail.com
                       </a>
                     </p>
