@@ -35,7 +35,7 @@ const IdVerification: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
               <h3 className="text-[#4A0E67] font-semibold mb-2">Proof of Identity</h3>
-              <p className="text-sm text-gray-600 mb-4">Upload Any Verified means of ID (National/State ID, Drivers' Licence, BVN, Voters' Card, etc)</p>
+              <p className="text-sm text-gray-600 mb-4">Upload Any Verified means of ID (National/State ID, Drivers'Licence, Voters'Card)</p>
               <label className="cursor-pointer block">
                 <div className="border-2 border-[#4A0E67] border-dashed rounded-lg p-8 hover:bg-gray-50">
                   <Upload className="mx-auto text-[#4A0E67] mb-2" size={32} />

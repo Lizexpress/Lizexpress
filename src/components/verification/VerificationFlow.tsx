@@ -309,9 +309,9 @@ const VerificationFlow: React.FC<VerificationFlowProps> = ({ onComplete, onSkip 
   const getStepDescription = (type: string) => {
     switch (type) {
       case 'identity':
-        return 'Upload Any Verified means of ID (National/State ID, Drivers\' Licence, BVN, Voters\' Card, etc)';
+        return 'Upload Any Verified means of ID (National/State ID, Drivers\' Licence, Voters\' Card)';
       case 'address':
-        return 'Upload Utility Bill or Bank Statement';
+        return 'Upload Utility Bill';
       case 'selfie':
         return 'Take a live selfie using your camera';
       default:
