@@ -253,7 +253,7 @@ const VerificationFlow: React.FC<VerificationFlowProps> = ({ onComplete, onSkip 
     try {
       setLoading(true);
 
-      // Create verification record
+    
       const { error: verificationError } = await supabase
         .from('verifications')
         .insert({
