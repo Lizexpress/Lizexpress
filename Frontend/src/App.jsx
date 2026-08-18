@@ -18,7 +18,7 @@ const {
   register, verifyEmail, login, forgotPassword, resetPassword,
   dashboard, myListings, favorites, payments, settings, verification,
   listItem, paymentCallback, chats, chatThread, notifications,
-  adminLayout, adminDashboard, adminVerifications, adminUsers, adminItems,
+  adminLogin, adminLayout, adminDashboard, adminVerifications, adminUsers, adminItems,
   adminPayments, adminTasks, adminFeedback, adminAudit, adminSettings,
 } = loaders;
 
@@ -51,6 +51,7 @@ const Chats = lazy(chats);
 const ChatThread = lazy(chatThread);
 const Notifications = lazy(notifications);
 
+const AdminLogin = lazy(adminLogin);
 const AdminLayout = lazy(adminLayout);
 const AdminDashboard = lazy(adminDashboard);
 const AdminVerifications = lazy(adminVerifications);
@@ -114,6 +115,10 @@ export const App = () => (
           </Route>
         </Route>
       </Route>
+
+      {/* Staff sign-in sits OUTSIDE the guard — otherwise the guard would
+          redirect to it and the redirect would hit the guard again. */}
+      <Route path="/admin/login" element={<Suspense fallback={<PageLoader />}><AdminLogin /></Suspense>} />
 
       <Route element={<RequireStaff />}>
         <Route path="/admin" element={<Suspense fallback={<PageLoader />}><AdminLayout /></Suspense>}>

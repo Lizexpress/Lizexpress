@@ -36,6 +36,7 @@ export const loaders = {
   chatThread: () => import('../pages/ChatThread.jsx'),
   notifications: () => import('../pages/Notifications.jsx'),
 
+  adminLogin: () => import('../admin/pages/AdminLogin.jsx'),
   adminLayout: () => import('../admin/AdminLayout.jsx'),
   adminDashboard: () => import('../admin/pages/AdminDashboard.jsx'),
   adminVerifications: () => import('../admin/pages/AdminVerifications.jsx'),
@@ -75,6 +76,7 @@ const ROUTE_PATTERNS = [
   ['/chats/:id', loaders.chatThread],
   ['/chats', loaders.chats],
   ['/notifications', loaders.notifications],
+  ['/admin/login', loaders.adminLogin],
   ['/admin/verifications', loaders.adminVerifications],
   ['/admin/users', loaders.adminUsers],
   ['/admin/items', loaders.adminItems],

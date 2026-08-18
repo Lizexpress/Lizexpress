@@ -180,6 +180,84 @@ accepts a Buffer, a string, or an object. This matters because the webhook
 answers 200 to stop Flutterwave retrying — a parsing failure would be nearly
 silent, and payments would simply never settle.
 
+## Email images
+
+Templates reference absolute URLs under `{APP_URL}/email-assets/`:
+
+```
+logo-white.png  social-tiktok.png  social-youtube.png
+social-facebook.png  social-instagram.png
+```
+
+They live in `frontend/public/email-assets/`, so they deploy with the web app.
+Icons are the same official brand glyphs the site footer uses, rendered to PNG
+because email clients — Outlook above all — cannot render inline SVG.
+
+**If images look broken, check APP_URL first.** Those URLs are fetched by the
+recipient's mail provider over the public internet, not by this server. With
+`APP_URL=http://localhost:5173`, Gmail cannot reach them and every image breaks.
+The service logs `email.assets.unreachable` on first send when it detects this.
+
+The footer is built to survive images being blocked, which is the default in
+most inboxes: the purple disc behind each icon is drawn by the table cell, so
+with images off the row degrades to four tidy purple links rather than four
+broken-image boxes.
+
+## Admin console
+
+Reached at `/admin`. **There is no admin registration** — accounts exist only
+because the migration seeds them, so there is no public path to becoming staff.
+
+### Seeded accounts
+
+| Email | Role | Password |
+|---|---|---|
+| `admin@lizexpressltd.com` | super_admin | `LizAdmin#2026!Change` |
+| `operations@lizexpressltd.com` | admin | `LizOps#2026!Change` |
+| `support@lizexpressltd.com` | moderator | `LizSupport#2026!Chg` |
+
+**Change all three immediately after first login.** They are plain text in the
+migration file; treat it as a secret until they are rotated, and never commit
+real production passwords.
+
+`admin@lizexpressltd.com` most likely already exists from v1. The seed will
+**not** overwrite an existing password — re-running the migration can never
+reset a live administrator. If nobody knows that password:
+
+```sql
+SELECT public.set_staff_password('admin@lizexpressltd.com', 'a-strong-new-password');
+```
+
+The seed also repairs accounts created under v1 that have no `auth.identities`
+row. Without one, GoTrue refuses password sign-in — the account exists but can
+never log in, which is easy to mistake for a wrong password.
+
+### Roles
+
+| Role | Can do |
+|---|---|
+| `moderator` | Review verifications, moderate listings and feedback |
+| `admin` | The above, plus suspend users and view payments |
+| `super_admin` | The above, plus assign roles and change platform settings |
+
+### How the route is protected
+
+Three independent layers, because the first two are conveniences and only the
+third is a real boundary:
+
+1. `RequireStaff` redirects anonymous visitors to `/admin/login`, and sends a
+   signed-in non-staff user to **404** rather than 403 — a 403 would confirm the
+   console exists at that URL.
+2. The staff sign-in form never reveals whether an address is staff. Correct
+   credentials for a non-staff account are signed straight back out with the
+   same message as a wrong password, so the form cannot be used to enumerate
+   administrator emails.
+3. **Every admin endpoint re-checks the role server-side** via `requireAdmin`.
+   Editing the guard in devtools grants nothing; the API is the boundary.
+
+Every privileged action is written to the append-only `admin_actions` audit log
+with the actor, IP, and before/after state.
+
 ## Database
 
 One migration file: `../database/migrations/20260814000000_v2_upgrade.sql`

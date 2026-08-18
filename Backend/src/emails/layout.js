@@ -33,15 +33,19 @@ const FONT_STACK =
 const assets = `${env.appUrl.replace(/\/$/, '')}/email-assets`;
 
 /**
- * Real brand marks — official glyphs, not invented shapes.
- * Ship these PNGs to /public/email-assets in the frontend repo.
+ * The accounts the site actually links to. Icons are the official brand glyphs,
+ * rendered to PNG in frontend/public/email-assets — email clients (Outlook
+ * especially) cannot render inline SVG, so raster is the only option.
+ *
+ * NOTE: these URLs are absolute and built from APP_URL. An inbox fetches them
+ * over the public internet, so APP_URL must be a reachable https host. Pointing
+ * it at localhost is why images appear broken in local testing.
  */
 const SOCIALS = [
-  { name: 'Instagram', icon: `${assets}/social-instagram.png`, url: 'https://www.instagram.com/lizexpressltd/' },
-  { name: 'Facebook', icon: `${assets}/social-facebook.png`, url: 'https://www.facebook.com/lizexpressltd' },
-  { name: 'X', icon: `${assets}/social-x.png`, url: 'https://x.com/lizexpressltd' },
-  { name: 'LinkedIn', icon: `${assets}/social-linkedin.png`, url: 'https://www.linkedin.com/company/lizexpressltd' },
-  { name: 'WhatsApp', icon: `${assets}/social-whatsapp.png`, url: 'https://wa.me/2349010000000' },
+  { name: 'TikTok', icon: `${assets}/social-tiktok.png`, url: 'https://www.tiktok.com/@lizexpressltd' },
+  { name: 'YouTube', icon: `${assets}/social-youtube.png`, url: 'https://youtube.com/@lizexpressltd' },
+  { name: 'Facebook', icon: `${assets}/social-facebook.png`, url: 'https://www.facebook.com/profile.php?id=61577030412249' },
+  { name: 'Instagram', icon: `${assets}/social-instagram.png`, url: 'https://www.instagram.com/lizexpressnig' },
 ];
 
 export const button = (label, url, variant = 'primary') => {
@@ -110,13 +114,16 @@ export const notice = (text, tone = 'neutral') => {
 };
 
 const socialBar = () => `
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 18px;">
+  <table role="presentation" cellpadding="0" cellspacing="7" border="0" style="margin:0 auto 14px;">
     <tr>
       ${SOCIALS.map(
-        (s) => `<td style="padding:0 7px;">
-          <a href="${s.url}" title="${s.name}">
-            <img src="${s.icon}" width="24" height="24" alt="${s.name}"
-                 style="display:block;border:0;width:24px;height:24px;" />
+        (s) => `<td bgcolor="${BRAND.purple}" width="28" height="28"
+                    style="padding:0;width:28px;height:28px;border-radius:14px;
+                           mso-padding-alt:0;" class="lx-social">
+          <a href="${s.url}" title="${s.name}" aria-label="${s.name}"
+             style="display:block;width:28px;height:28px;text-decoration:none;">
+            <img src="${s.icon}" width="28" height="28" alt=""
+                 style="display:block;border:0;width:28px;height:28px;border-radius:14px;" />
           </a></td>`,
       ).join('')}
     </tr>
@@ -175,7 +182,9 @@ export const renderLayout = ({ preheader, eyebrow, heading, body, footNote = '' 
                   <td>
                     <a href="${env.appUrl}" style="text-decoration:none;">
                       <img src="${assets}/logo-white.png" width="132" height="30" alt="LizExpress"
-                           style="display:block;border:0;height:30px;width:auto;" />
+                           style="display:block;border:0;height:30px;width:auto;
+                                  font-family:${FONT_STACK};font-size:19px;font-weight:700;
+                                  color:#FFFFFF;text-decoration:none;" />
                     </a>
                   </td>
                   <td align="right" style="font-family:${FONT_STACK};font-size:12px;

@@ -33,10 +33,26 @@ export const RequireVerified = () => {
 
 export const RequireStaff = () => {
   const { status, isStaff } = useAuth();
+  const location = useLocation();
 
   if (status === 'loading') return <PageLoader />;
-  if (status === 'anonymous') return <Navigate to="/login" replace />;
-  // A non-staff user should not learn that /admin exists.
+
+  // Not signed in -> the staff sign-in page, not the public one. Remember the
+  // destination so the console lands where they were headed.
+  if (status === 'anonymous') {
+    return <Navigate to="/admin/login" replace state={{ from: location }} />;
+  }
+
+  /**
+   * Signed in but not staff -> 404, deliberately, rather than "forbidden".
+   * A 403 confirms the console exists at this URL; a 404 tells a probing
+   * account nothing it did not already know.
+   *
+   * This is a convenience boundary, not the security boundary: the guard only
+   * decides what renders. Every admin endpoint independently re-checks the
+   * caller's role server-side, so editing this in devtools grants nothing.
+   */
   if (!isStaff) return <Navigate to="/404" replace />;
+
   return <Outlet />;
 };

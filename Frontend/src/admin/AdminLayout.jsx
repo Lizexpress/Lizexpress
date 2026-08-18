@@ -1,5 +1,5 @@
 import { Suspense, useState } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ShieldCheck, Users, Package, CreditCard,
   ListTodo, MessageSquare, ScrollText, Settings, Menu, ExternalLink, LogOut,
@@ -31,6 +31,7 @@ const NAV = [
  */
 export const AdminLayout = () => {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
   const sidebar = (
@@ -72,7 +73,10 @@ export const AdminLayout = () => {
         </Link>
         <button
           type="button"
-          onClick={signOut}
+          onClick={async () => {
+            await signOut();
+            navigate('/admin/login', { replace: true });
+          }}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-purple-100/80 transition hover:bg-white/10 hover:text-white"
         >
           <LogOut size={17} aria-hidden="true" />
