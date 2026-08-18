@@ -23,9 +23,11 @@ import { ApiError } from '../../lib/api.js';
  * doubles as an oracle for enumerating administrator emails.
  */
 const AdminLogin = () => {
-  const { login, signOut, status, isStaff } = useAuth();
+  const { login, signOut, status, isStaff, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const deniedForCurrentAccount = Boolean(location.state?.denied) && status === 'authenticated' && !isStaff;
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
@@ -92,6 +94,24 @@ const AdminLogin = () => {
             <p className="mt-1.5 text-sm text-ink-muted">
               For LizExpress staff only. Accounts are issued by a super admin.
             </p>
+
+            {deniedForCurrentAccount && (
+              <div className="mt-5 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3.5 text-sm text-orange-900">
+                <p className="font-semibold">This account has no console access</p>
+                <p className="mt-1 leading-relaxed">
+                  You are signed in as{' '}
+                  <span className="font-medium">{user?.email ?? user?.full_name ?? 'a member account'}</span>, which is a
+                  regular member. Sign in below with a staff account.
+                </p>
+                <button
+                  type="button"
+                  onClick={signOut}
+                  className="mt-2.5 text-sm font-semibold text-purple-700 underline underline-offset-4 hover:text-purple-800"
+                >
+                  Sign out of this account
+                </button>
+              </div>
+            )}
 
             <form onSubmit={onSubmit} noValidate className="mt-6 space-y-4">
               {error && (

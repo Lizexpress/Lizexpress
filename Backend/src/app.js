@@ -12,7 +12,6 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
-import swaggerUi from 'swagger-ui-express';
 
 import env from './config/env.js';
 import routes from './routes/index.js';
@@ -91,15 +90,66 @@ const loadSpec = () => {
 
 const spec = loadSpec();
 if (spec) {
-  app.use(
-    '/docs',
-    swaggerUi.serve,
-    swaggerUi.setup(spec, {
-      customSiteTitle: 'LizExpress API v2',
-      customCss: '.swagger-ui .topbar{background:#4A0E67}.swagger-ui .topbar .download-url-wrapper{display:none}',
-      swaggerOptions: { persistAuthorization: true, docExpansion: 'none', filter: true },
-    }),
-  );
+  /**
+   * Swagger UI is served as one self-contained page that pulls the viewer from
+   * a CDN, rather than through swagger-ui-express.
+   *
+   * swagger-ui-express serves its assets with express.static over
+   * node_modules/swagger-ui-dist. A serverless bundler cannot see those files —
+   * they are read from disk by path at runtime, not imported — so they are
+   * absent from the deployment. The static handler then falls through and
+   * swaggerUi.setup answers EVERY /docs/* path with the HTML shell, so the
+   * browser receives text/html for swagger-ui.css and refuses it under strict
+   * MIME checking. The page renders blank with console errors.
+   *
+   * Serving one page and letting the CDN supply the viewer removes the whole
+   * class of problem, and the spec itself is still served from this deployment.
+   */
+  const DOCS_VERSION = '5.17.14';
+
+  const docsPage = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>LizExpress API v2</title>
+    <link rel="icon" href="${env.appUrl}/favicon.ico" />
+    <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@${DOCS_VERSION}/swagger-ui.css" />
+    <style>
+      body { margin: 0; background: #fafafa; }
+      .swagger-ui .topbar { background: #4A0E67; }
+      .swagger-ui .topbar .download-url-wrapper { display: none; }
+      .swagger-ui .info .title small.version-stamp { background: #F7941D; }
+    </style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@${DOCS_VERSION}/swagger-ui-bundle.js" crossorigin></script>
+    <script src="https://unpkg.com/swagger-ui-dist@${DOCS_VERSION}/swagger-ui-standalone-preset.js" crossorigin></script>
+    <script>
+      window.onload = () => {
+        window.ui = SwaggerUIBundle({
+          url: '/openapi.json',
+          dom_id: '#swagger-ui',
+          deepLinking: true,
+          docExpansion: 'none',
+          filter: true,
+          persistAuthorization: true,
+          presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+          layout: 'StandaloneLayout',
+        });
+      };
+    </script>
+  </body>
+</html>`;
+
+  // Both /docs and /docs/ resolve; no sub-paths exist, so nothing can be
+  // mistakenly answered with HTML.
+  app.get(['/docs', '/docs/'], (_req, res) => {
+    res.type('html').send(docsPage);
+  });
+
   app.get('/openapi.json', (_req, res) => res.json(spec));
 } else {
   logger.warn('docs.unavailable', { reason: 'openapi.yaml not found' });

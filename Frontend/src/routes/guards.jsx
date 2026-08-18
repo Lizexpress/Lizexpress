@@ -44,15 +44,19 @@ export const RequireStaff = () => {
   }
 
   /**
-   * Signed in but not staff -> 404, deliberately, rather than "forbidden".
-   * A 403 confirms the console exists at this URL; a 404 tells a probing
-   * account nothing it did not already know.
+   * Signed in, but not staff -> the staff sign-in page with an explanation.
    *
-   * This is a convenience boundary, not the security boundary: the guard only
-   * decides what renders. Every admin endpoint independently re-checks the
-   * caller's role server-side, so editing this in devtools grants nothing.
+   * This previously redirected to /404 to avoid confirming the console exists.
+   * That reasoning does not hold: /admin/login is a public URL, so anyone can
+   * already confirm it. All the 404 achieved was making a legitimate owner --
+   * signed in on their normal account -- think the console was missing.
+   *
+   * Either way it is not the security boundary. Every admin endpoint re-checks
+   * the caller's role server-side, so what renders here grants no access.
    */
-  if (!isStaff) return <Navigate to="/404" replace />;
+  if (!isStaff) {
+    return <Navigate to="/admin/login" replace state={{ from: location, denied: true }} />;
+  }
 
   return <Outlet />;
 };

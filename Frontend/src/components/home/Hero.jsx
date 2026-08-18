@@ -68,8 +68,54 @@ export const Hero = () => {
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      {/* 16:9 kept from the source artwork so nothing is cropped awkwardly. */}
-      <div className="relative aspect-[16/9] max-h-[600px] w-full">
+      {/*
+        Ambient backdrop for the space either side of the slide on wide screens.
+        A flat white frame boxed in the purple and orange banners with a hard
+        edge; a blurred, scaled copy of the current slide always harmonises,
+        whatever that slide's palette is.
+
+        Only rendered from lg upward — below the width cap there is no gap to
+        fill, so a phone never pays for it. It is decorative and already in
+        cache from the slide itself.
+      */}
+      <div className="absolute inset-0 hidden lg:block" aria-hidden="true">
+        {SLIDES.map((slide, index) => (
+          <img
+            key={`bg-${slide.id}`}
+            src={`/hero/${slide.id}.jpg`}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className={cn(
+              'absolute inset-0 h-full w-full scale-125 object-cover blur-3xl transition-opacity duration-700',
+              index === current ? 'opacity-100' : 'opacity-0',
+            )}
+          />
+        ))}
+      </div>
+      {/*
+        These banners are finished artwork with the headline baked into the
+        image, so they must never be cropped — a crop cuts the message off.
+
+        Height is therefore controlled by capping the WIDTH and centring, not by
+        capping the height. Clamping height while the width kept growing pushed
+        the frame to 2.4:1 at 1440px and 3.2:1 at 1920px, and object-cover then
+        sliced the top and bottom off every slide. Below ~1080px this is
+        full-bleed and the cap does nothing, which is why mobile was already
+        correct.
+      */}
+      <div className="relative z-10 mx-auto w-full max-w-[1280px]">
+        <div
+          className="relative aspect-[16/9] w-full overflow-hidden"
+          style={{
+            // Feathered edges: the slide dissolves into the blurred backdrop
+            // instead of ending on a hard vertical line.
+            maskImage:
+              'linear-gradient(to right, transparent 0, #000 3.5%, #000 96.5%, transparent 100%)',
+            WebkitMaskImage:
+              'linear-gradient(to right, transparent 0, #000 3.5%, #000 96.5%, transparent 100%)',
+          }}
+        >
         {SLIDES.map((slide, index) => (
           <div
             key={slide.id}
@@ -92,7 +138,7 @@ export const Hero = () => {
                 loading={index === 0 ? 'eager' : 'lazy'}
                 fetchPriority={index === 0 ? 'high' : 'low'}
                 decoding={index === 0 ? 'sync' : 'async'}
-                className="h-full w-full object-cover"
+                className="h-full w-full object-contain"
               />
             </picture>
           </div>
@@ -116,6 +162,7 @@ export const Hero = () => {
               />
             ))}
           </div>
+        </div>
         </div>
       </div>
     </section>

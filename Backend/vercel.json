@@ -4,7 +4,6 @@
   "buildCommand": "npm run docs:bundle",
   "outputDirectory": "public",
   "installCommand": "npm ci",
-
   "functions": {
     "api/index.js": {
       "memory": 1024,
@@ -12,26 +11,50 @@
       "includeFiles": "{docs,src/emails}/**"
     }
   },
-
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" },
-    { "source": "/docs", "destination": "/api" },
-    { "source": "/docs/(.*)", "destination": "/api" },
-    { "source": "/openapi.json", "destination": "/api" }
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    },
+    {
+      "source": "/docs",
+      "destination": "/api"
+    },
+    {
+      "source": "/docs/",
+      "destination": "/api"
+    },
+    {
+      "source": "/openapi.json",
+      "destination": "/api"
+    }
   ],
-
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "X-Frame-Options", "value": "DENY" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        }
       ]
     },
     {
       "source": "/api/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
     }
   ]
 }

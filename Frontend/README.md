@@ -117,6 +117,38 @@ drift into two different products.
 | Display fallback is system sans, never Georgia | If Fontshare is slow or blocked, headings degrade to sans — a serif fallback changes the page's whole character |
 | No raw hex in components | Every colour goes through a token, so a palette change is one edit |
 
+## Hero sizing
+
+The nine banners are finished artwork with the headline baked into the image,
+so they can never be cropped — a crop cuts the message off. They are a fixed
+1600x900 (16:9), and that constrains what "full width" can mean:
+
+| Viewport | True 16:9 height | Cropped away if forced to 600px tall |
+|---|---|---|
+| 1280 | 719px | 17% |
+| 1440 | 809px | 26% |
+| 1920 | 1079px | 44% |
+
+Genuine edge-to-edge at 1920 would be a 1080px-tall hero, taller than the
+viewport. So the section is full-bleed, but the *artwork* is not stretched to
+fill it:
+
+- The slide keeps its exact 16:9 ratio, capped at 1280px wide — effectively
+  full width on a laptop, and 720px tall at most.
+- The full-width band behind it carries a blurred, scaled copy of the current
+  slide, so the colour runs edge to edge and changes with the slide.
+- The slide's left and right edges are feathered into that backdrop with a mask,
+  so there is no visible seam between artwork and band.
+
+An earlier version clamped `max-h` instead, which let the frame stretch to
+2.4:1 at 1440 and 3.2:1 at 1920 while `object-cover` sliced the top and bottom
+off every slide — the headline was being cut out on desktop. Below the cap
+nothing changed, which is why phones always looked right.
+
+`object-contain` is the safety net: a future slide that is not exactly 16:9
+letterboxes rather than silently losing artwork. The backdrop renders only from
+`lg` upward, since below the cap there is no band to fill.
+
 ## Performance
 
 Measured on the production build:
