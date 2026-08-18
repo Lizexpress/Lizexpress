@@ -1,0 +1,147 @@
+/chats:
+  get:
+    tags: [Chats]
+    summary: Your conversations
+    description: Ordered by most recent activity. Each entry carries a message preview for the list view.
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      - { name: archived, in: query, schema: { type: boolean, default: false } }
+    responses:
+      '200':
+        description: Paginated conversations.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { type: array, items: { $ref: '#/components/schemas/Chat' } }
+  post:
+    tags: [Chats]
+    summary: Start (or reopen) a conversation about an item
+    description: |
+      Idempotent — calling this twice for the same item and pair returns the
+      existing thread rather than creating a duplicate. Requires a verified
+      identity. You cannot open a conversation about your own listing.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [itemId]
+            properties:
+              itemId: { type: string, format: uuid }
+    responses:
+      '201': { description: Conversation ready. }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/chats/unread-count:
+  get:
+    tags: [Chats]
+    summary: Total unread messages across all threads
+    description: Used for the navigation badge. Also pushed over Realtime as `unread:update`.
+    responses:
+      '200':
+        description: Count.
+        content:
+          application/json:
+            example: { success: true, data: { unread: 4 } }
+
+/chats/{id}:
+  get:
+    tags: [Chats]
+    summary: Conversation with messages
+    description: |
+      Returns the thread and a page of messages, **oldest first** for rendering.
+      Opening a conversation marks the other party's messages as read and
+      broadcasts `message:read` to the thread channel.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+    responses:
+      '200':
+        description: Thread and messages.
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/chats/{id}/messages:
+  post:
+    tags: [Chats]
+    summary: Send a message
+    description: |
+      Writes the message, then broadcasts `message:new` on `chat:{id}`, then
+      notifies the recipient (in-app, push, and email if they allow it).
+      The database write happens first, so a transport failure never loses a message.
+
+      Set `messageType: swap_offer` and put the offer details in `metadata` to
+      render an offer card in the thread.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SendMessageRequest' }
+    responses:
+      '201':
+        description: Message sent.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { $ref: '#/components/schemas/Message' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/chats/{id}/typing:
+  post:
+    tags: [Chats]
+    summary: Broadcast a typing indicator
+    description: |
+      Fire-and-forget. Nothing is persisted — this only emits `typing` on the
+      thread channel. Debounce on the client; do not call it per keystroke.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [isTyping]
+            properties:
+              isTyping: { type: boolean }
+    responses:
+      '200': { description: Broadcast sent. }
+
+/chats/{id}/read:
+  post:
+    tags: [Chats]
+    summary: Mark a thread as read
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    responses:
+      '200': { description: Marked read. }
+
+/chats/{id}/archive:
+  patch:
+    tags: [Chats]
+    summary: Archive or unarchive a thread
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [archived]
+            properties:
+              archived: { type: boolean }
+    responses:
+      '200': { description: Updated. }

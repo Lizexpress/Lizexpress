@@ -1,0 +1,132 @@
+/payments/quote/{itemId}:
+  get:
+    tags: [Payments]
+    summary: Preview the listing fee
+    description: |
+      The fee is derived server-side from the item's stored value —
+      5% with a floor of ₦100. Clients must display this figure rather than
+      computing their own.
+    parameters:
+      - { name: itemId, in: path, required: true, schema: { type: string, format: uuid } }
+    responses:
+      '200':
+        description: Fee breakdown.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { $ref: '#/components/schemas/PaymentQuote' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '409': { $ref: '#/components/responses/Conflict' }
+
+/payments/initialise:
+  post:
+    tags: [Payments]
+    summary: Start a listing-fee payment
+    description: |
+      Creates a pending payment record and returns the parameters for the
+      Flutterwave checkout widget — including the **public** key only. The
+      amount is set server-side and cannot be influenced by the request.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [itemId]
+            properties:
+              itemId: { type: string, format: uuid }
+    responses:
+      '201':
+        description: Checkout parameters.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { $ref: '#/components/schemas/PaymentInit' }
+      '409': { $ref: '#/components/responses/Conflict' }
+
+/payments/confirm:
+  post:
+    tags: [Payments]
+    summary: Confirm a payment after checkout closes
+    description: |
+      Call this when the Flutterwave widget returns. The server verifies the
+      transaction directly with Flutterwave using the secret key, checks that
+      the returned `tx_ref` matches the record, and confirms the amount and
+      currency before publishing the item.
+
+      A client claiming success is never sufficient. This endpoint is
+      idempotent and safe to retry — the webhook may have already settled it.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [txRef, transactionId]
+            properties:
+              txRef: { type: string }
+              transactionId: { oneOf: [{ type: string }, { type: integer }] }
+    responses:
+      '200':
+        description: Verification result.
+        content:
+          application/json:
+            example:
+              success: true
+              data: { status: successful, txRef: LX-1755100000000-A1B2C3D4, itemId: 8c2f... }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '503':
+        description: The payment provider was unreachable. Safe to retry.
+
+/payments/webhook:
+  post:
+    tags: [Payments]
+    summary: Flutterwave webhook
+    security: []
+    description: |
+      **Not for client use.** Configure this URL in the Flutterwave dashboard
+      and set the same secret hash in `FLUTTERWAVE_WEBHOOK_HASH`.
+
+      The signature in the `verif-hash` header is compared in constant time
+      against the raw request body before anything is parsed. This is the
+      authoritative settlement path — the client callback is a convenience.
+    parameters:
+      - { name: verif-hash, in: header, required: true, schema: { type: string } }
+    responses:
+      '200': { description: Event processed, or ignored as a duplicate or unknown type. }
+      '403': { description: Signature missing or invalid. }
+
+/payments/history:
+  get:
+    tags: [Payments]
+    summary: Your payment history
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+    responses:
+      '200':
+        description: Paginated payments.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { type: array, items: { $ref: '#/components/schemas/Payment' } }
+
+/payments/receipt/{txRef}:
+  get:
+    tags: [Payments]
+    summary: Single payment receipt
+    parameters:
+      - { name: txRef, in: path, required: true, schema: { type: string } }
+    responses:
+      '200': { description: The payment. }
+      '403': { $ref: '#/components/responses/Forbidden' }
+      '404': { $ref: '#/components/responses/NotFound' }

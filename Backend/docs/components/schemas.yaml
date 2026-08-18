@@ -1,0 +1,430 @@
+# ─────────────────────────────────────────────────────────────
+#  Shared schemas. Referenced from every path file.
+# ─────────────────────────────────────────────────────────────
+
+Envelope:
+  type: object
+  properties:
+    success: { type: boolean, example: true }
+    data: { type: object }
+    meta: { $ref: '#/components/schemas/PageMeta' }
+
+PageMeta:
+  type: object
+  properties:
+    page: { type: integer, example: 1 }
+    limit: { type: integer, example: 20 }
+    total: { type: integer, example: 137 }
+    totalPages: { type: integer, example: 7 }
+    hasNext: { type: boolean, example: true }
+    hasPrev: { type: boolean, example: false }
+
+ErrorResponse:
+  type: object
+  required: [success, error]
+  properties:
+    success: { type: boolean, example: false }
+    error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [bad_request, unauthorized, forbidden, not_found, conflict, validation_error, rate_limited, service_unavailable, internal_error]
+        message: { type: string, description: Safe to display to the end user verbatim. }
+        details:
+          description: Field-level errors, or an action hint the client can branch on.
+          oneOf:
+            - type: array
+              items:
+                type: object
+                properties:
+                  field: { type: string }
+                  message: { type: string }
+                  code: { type: string }
+            - type: object
+
+# ── Auth ───────────────────────────────────────────────────
+
+Session:
+  type: object
+  properties:
+    accessToken: { type: string, description: "Send as `Authorization: Bearer`." }
+    refreshToken: { type: string, description: Store securely; used by /auth/refresh. }
+    expiresIn: { type: integer, example: 3600, description: Seconds until expiry. }
+    expiresAt: { type: integer, description: Unix timestamp of expiry. }
+    tokenType: { type: string, example: bearer }
+
+OtpChallenge:
+  type: object
+  properties:
+    expiresAt: { type: string, format: date-time }
+    resendAvailableInSeconds: { type: integer, example: 60 }
+
+RegisterRequest:
+  type: object
+  required: [fullName, email, password, acceptedTerms]
+  properties:
+    fullName: { type: string, minLength: 2, maxLength: 120, example: Amina Yusuf }
+    email: { type: string, format: email, example: amina@example.com }
+    password:
+      type: string
+      minLength: 8
+      maxLength: 72
+      description: Must contain a lowercase letter, an uppercase letter, and a number.
+      example: SwapItNow24
+    acceptedTerms: { type: boolean, enum: [true] }
+
+VerifyEmailRequest:
+  type: object
+  required: [email, code]
+  properties:
+    email: { type: string, format: email }
+    code:
+      type: string
+      pattern: "^[0-9]{6}$"
+      example: "482915"
+
+LoginRequest:
+  type: object
+  required: [email, password]
+  properties:
+    email: { type: string, format: email }
+    password: { type: string }
+
+AuthResult:
+  type: object
+  properties:
+    session: { $ref: '#/components/schemas/Session' }
+    user: { $ref: '#/components/schemas/UserProfile' }
+
+# ── Users ──────────────────────────────────────────────────
+
+UserProfile:
+  type: object
+  properties:
+    id: { type: string, format: uuid }
+    email: { type: string, format: email }
+    full_name: { type: string, example: Amina Yusuf }
+    avatar_url: { type: string, nullable: true }
+    phone: { type: string, nullable: true }
+    residential_address: { type: string, nullable: true }
+    date_of_birth: { type: string, format: date, nullable: true }
+    gender: { type: string, enum: [male, female, other, prefer_not_to_say], nullable: true }
+    country: { type: string, example: Nigeria }
+    state: { type: string, example: Kano }
+    city: { type: string, example: Kano }
+    nationality: { type: string, nullable: true }
+    role: { type: string, enum: [user, moderator, admin, super_admin] }
+    is_verified: { type: boolean, description: True once KYC documents are approved. }
+    is_suspended: { type: boolean }
+    verification_submitted: { type: boolean }
+    profile_completed: { type: boolean }
+    last_seen_at: { type: string, format: date-time, nullable: true }
+    notification_preferences:
+      type: object
+      additionalProperties: { type: boolean }
+      example:
+        email: true
+        push: true
+        email_message: false
+    created_at: { type: string, format: date-time }
+
+UserSummary:
+  type: object
+  properties:
+    id: { type: string, format: uuid }
+    full_name: { type: string }
+    avatar_url: { type: string, nullable: true }
+    is_verified: { type: boolean }
+    country: { type: string }
+    city: { type: string }
+
+DashboardSummary:
+  type: object
+  properties:
+    totalListings: { type: integer, example: 12 }
+    activeListings: { type: integer, example: 8 }
+    swapped: { type: integer, example: 3 }
+    savedItems: { type: integer, example: 7 }
+    unreadMessages: { type: integer, example: 4 }
+    unreadNotifications: { type: integer, example: 2 }
+
+# ── Items ──────────────────────────────────────────────────
+
+Item:
+  type: object
+  properties:
+    id: { type: string, format: uuid }
+    user_id: { type: string, format: uuid }
+    name: { type: string, example: MacBook Air M1 2020 }
+    description: { type: string }
+    category: { type: string, example: Electronics }
+    subcategory: { type: string, nullable: true }
+    condition: { type: string, enum: [new, like_new, good, fair, for_parts] }
+    estimated_cost: { type: number, example: 450000, description: Current value in the platform currency. Drives the listing fee. }
+    buying_price: { type: number, nullable: true }
+    swap_for: { type: string, example: A DSLR camera or an iPhone 13 }
+    country: { type: string }
+    state: { type: string }
+    city: { type: string }
+    images: { type: array, items: { type: string, format: uri }, maxItems: 8 }
+    status:
+      type: string
+      enum: [draft, pending_payment, active, swapped, suspended, archived]
+      description: Only `active` items appear in public browse.
+    payment_status: { type: string, enum: [unpaid, paid, refunded] }
+    view_count: { type: integer }
+    favorite_count: { type: integer }
+    published_at: { type: string, format: date-time, nullable: true }
+    created_at: { type: string, format: date-time }
+    owner: { $ref: '#/components/schemas/UserSummary' }
+
+CreateItemRequest:
+  type: object
+  required: [name, description, category, condition, estimatedCost, swapFor, images]
+  properties:
+    name: { type: string, minLength: 3, maxLength: 140 }
+    description: { type: string, minLength: 10, maxLength: 4000 }
+    category: { type: string }
+    subcategory: { type: string }
+    condition: { type: string, enum: [new, like_new, good, fair, for_parts] }
+    buyingPrice: { type: number, minimum: 0 }
+    estimatedCost: { type: number, exclusiveMinimum: 0 }
+    swapFor: { type: string, minLength: 3, maxLength: 500 }
+    country: { type: string }
+    state: { type: string }
+    city: { type: string }
+    images: { type: array, items: { type: string, format: uri }, minItems: 1, maxItems: 8 }
+    receiptImage: { type: string, format: uri, nullable: true }
+
+# ── Chat ───────────────────────────────────────────────────
+
+Chat:
+  type: object
+  properties:
+    id: { type: string, format: uuid }
+    item_id: { type: string, format: uuid }
+    sender_id: { type: string, format: uuid }
+    receiver_id: { type: string, format: uuid }
+    last_message_at: { type: string, format: date-time, nullable: true }
+    last_message_preview: { type: string, nullable: true }
+    is_archived: { type: boolean }
+    item: { $ref: '#/components/schemas/Item' }
+    sender: { $ref: '#/components/schemas/UserSummary' }
+    receiver: { $ref: '#/components/schemas/UserSummary' }
+
+Message:
+  type: object
+  properties:
+    id: { type: string, format: uuid }
+    chat_id: { type: string, format: uuid }
+    sender_id: { type: string, format: uuid }
+    content: { type: string }
+    attachments: { type: array, items: { type: string, format: uri } }
+    message_type: { type: string, enum: [text, image, swap_offer, system] }
+    is_read: { type: boolean }
+    read_at: { type: string, format: date-time, nullable: true }
+    created_at: { type: string, format: date-time }
+    sender: { $ref: '#/components/schemas/UserSummary' }
+
+SendMessageRequest:
+  type: object
+  description: Provide `content`, `attachments`, or both.
+  properties:
+    content: { type: string, maxLength: 4000 }
+    attachments: { type: array, items: { type: string, format: uri }, maxItems: 5 }
+    messageType: { type: string, enum: [text, image, swap_offer, system], default: text }
+    metadata: { type: object, description: Free-form. Used to carry swap-offer details. }
+
+# ── Verification ───────────────────────────────────────────
+
+VerificationSubmission:
+  type: object
+  required: [documentType, documentNumber, identityDocument, selfieImage]
+  properties:
+    documentType: { type: string, enum: [national_id, passport, drivers_license, voters_card] }
+    documentNumber: { type: string, minLength: 4, maxLength: 60 }
+    identityDocument:
+      type: string
+      description: "Storage path returned by POST /verifications/documents/{kind}."
+    identityDocumentBack: { type: string }
+    addressDocument: { type: string }
+    selfieImage: { type: string }
+
+VerificationStatus:
+  type: object
+  properties:
+    id: { type: string, format: uuid }
+    reference: { type: string, example: LX-KYC-M3F9A2K1-8BQ4 }
+    status: { type: string, enum: [not_submitted, pending, under_review, approved, rejected, resubmit] }
+    submittedAt: { type: string, format: date-time }
+    reviewedAt: { type: string, format: date-time, nullable: true }
+    rejectionReason: { type: string, nullable: true }
+    reviewerNotes: { type: string, nullable: true, description: Only returned when the status is rejected. }
+    attemptCount: { type: integer }
+    canSubmit: { type: boolean, description: Whether the applicant may submit again right now. }
+
+VerificationReviewItem:
+  allOf:
+    - $ref: '#/components/schemas/VerificationStatus'
+    - type: object
+      properties:
+        user: { $ref: '#/components/schemas/UserProfile' }
+        reviewer: { $ref: '#/components/schemas/UserSummary' }
+        documents:
+          type: object
+          description: |
+            Short-lived signed URLs, minted per request. Present only on
+            `GET /admin/verifications/{id}`. They expire after 5 minutes —
+            never cache or persist them.
+          properties:
+            identity_document: { type: string, format: uri, nullable: true }
+            identity_document_back: { type: string, format: uri, nullable: true }
+            address_document: { type: string, format: uri, nullable: true }
+            selfie_image: { type: string, format: uri, nullable: true }
+        documentsExpireInSeconds: { type: integer, example: 300 }
+
+VerificationDecision:
+  type: object
+  required: [decision]
+  properties:
+    decision: { type: string, enum: [approve, reject] }
+    reason:
+      type: string
+      description: Required when rejecting. Shown to the applicant in their email.
+      enum: [document_illegible, document_expired, name_mismatch, selfie_mismatch, suspected_forgery, incomplete_submission, other]
+    notes: { type: string, maxLength: 1000, description: Free-text guidance for the applicant. }
+
+# ── Payments ───────────────────────────────────────────────
+
+PaymentQuote:
+  type: object
+  properties:
+    itemId: { type: string, format: uuid }
+    itemName: { type: string }
+    itemValue: { type: number, example: 450000 }
+    fee: { type: number, example: 22500, description: Computed server-side. Clients must not calculate this. }
+    percentage: { type: number, example: 5 }
+    currency: { type: string, example: NGN }
+
+PaymentInit:
+  type: object
+  description: Everything the Flutterwave checkout widget needs. Contains the PUBLIC key only.
+  properties:
+    txRef: { type: string, example: LX-1755100000000-A1B2C3D4-X9F2K }
+    amount: { type: number }
+    currency: { type: string }
+    publicKey: { type: string }
+    redirectUrl: { type: string, format: uri }
+    customer: { type: object, properties: { email: { type: string }, name: { type: string }, phone_number: { type: string } } }
+    customizations: { type: object }
+
+Payment:
+  type: object
+  properties:
+    id: { type: string, format: uuid }
+    tx_ref: { type: string }
+    amount: { type: number }
+    currency: { type: string }
+    status: { type: string, enum: [pending, successful, failed, refunded] }
+    payment_method: { type: string, nullable: true }
+    failure_reason: { type: string, nullable: true }
+    paid_at: { type: string, format: date-time, nullable: true }
+    created_at: { type: string, format: date-time }
+    item: { $ref: '#/components/schemas/Item' }
+
+# ── Notifications ──────────────────────────────────────────
+
+Notification:
+  type: object
+  properties:
+    id: { type: string, format: uuid }
+    type: { type: string, enum: [message, swap_offer, verification, payment, item, system] }
+    title: { type: string }
+    content: { type: string }
+    action_url: { type: string, nullable: true, description: Relative path for the client to navigate to. }
+    data: { type: object, nullable: true }
+    is_read: { type: boolean }
+    created_at: { type: string, format: date-time }
+
+PushSubscriptionRequest:
+  type: object
+  required: [subscription]
+  properties:
+    subscription:
+      type: object
+      required: [endpoint, keys]
+      properties:
+        endpoint: { type: string, format: uri }
+        keys:
+          type: object
+          required: [p256dh, auth]
+          properties:
+            p256dh: { type: string }
+            auth: { type: string }
+    platform: { type: string, enum: [web, ios, android], default: web }
+    deviceId: { type: string }
+
+# ── Admin ──────────────────────────────────────────────────
+
+AdminOverview:
+  type: object
+  properties:
+    users:
+      type: object
+      properties:
+        total: { type: integer }
+        verified: { type: integer }
+        unverified: { type: integer }
+        suspended: { type: integer }
+        newLast7Days: { type: integer }
+        newLast30Days: { type: integer }
+        verificationRate: { type: number, example: 62.4 }
+    items:
+      type: object
+      properties:
+        total: { type: integer }
+        active: { type: integer }
+        swapped: { type: integer }
+        awaitingPayment: { type: integer }
+    verifications:
+      type: object
+      properties:
+        pending: { type: integer }
+        under_review: { type: integer }
+        approved: { type: integer }
+        rejected: { type: integer }
+        oldestWaitingHours: { type: integer }
+    revenue:
+      type: object
+      properties:
+        allTime: { type: number }
+        last30Days: { type: number }
+        transactions: { type: integer }
+        averageTicket: { type: number }
+
+AdminTask:
+  type: object
+  properties:
+    id: { type: string, format: uuid }
+    title: { type: string }
+    description: { type: string, nullable: true }
+    priority: { type: string, enum: [low, medium, high] }
+    status: { type: string, enum: [pending, in_progress, completed] }
+    due_date: { type: string, format: date-time, nullable: true }
+    assignee: { $ref: '#/components/schemas/UserSummary' }
+    created_at: { type: string, format: date-time }
+
+AuditEntry:
+  type: object
+  properties:
+    id: { type: string, format: uuid }
+    action: { type: string, example: verification.approved }
+    entity_type: { type: string, example: verification }
+    entity_id: { type: string }
+    before_state: { type: object, nullable: true }
+    after_state: { type: object, nullable: true }
+    ip_address: { type: string, nullable: true }
+    created_at: { type: string, format: date-time }
+    actor: { $ref: '#/components/schemas/UserSummary' }

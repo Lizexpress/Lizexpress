@@ -1,0 +1,292 @@
+# ═══════════════════════════════════════════════════════════
+#  Authentication — full OTP flow via Resend
+# ═══════════════════════════════════════════════════════════
+
+/auth/register:
+  post:
+    tags: [Authentication]
+    summary: Create an account and send a 6-digit code
+    security: []
+    description: |
+      Creates the account in a **pending** state and emails a 6-digit code.
+      No session is returned — the client must call `/auth/verify-email` next.
+
+      If an unconfirmed account already exists for this email, the password is
+      updated and a fresh code is sent rather than returning a conflict. This
+      lets a user who abandoned signup simply start again.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/RegisterRequest' }
+    responses:
+      '201':
+        description: Account created. Verification code sent.
+        content:
+          application/json:
+            example:
+              success: true
+              data:
+                userId: 6f1c9e2a-7b3d-4c8f-9a12-5e7d8f3b1c04
+                email: amina@example.com
+                requiresVerification: true
+                expiresAt: '2026-08-14T10:12:00.000Z'
+                resendAvailableInSeconds: 60
+      '409': { $ref: '#/components/responses/Conflict' }
+      '422': { $ref: '#/components/responses/ValidationError' }
+      '429': { $ref: '#/components/responses/RateLimited' }
+
+/auth/verify-email:
+  post:
+    tags: [Authentication]
+    summary: Exchange the signup code for a session
+    security: []
+    description: |
+      Confirms the email address and returns a full session. Also triggers the
+      welcome email. The code is consumed — a second call with the same code fails.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/VerifyEmailRequest' }
+    responses:
+      '200':
+        description: Verified. Session issued.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { $ref: '#/components/schemas/AuthResult' }
+      '401':
+        description: |
+          The code is wrong, expired, or already used. The message states how
+          many attempts remain, and is safe to show the user directly.
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ErrorResponse' }
+            example:
+              success: false
+              error: { code: unauthorized, message: That code is not correct. 3 attempts remaining. }
+      '429': { $ref: '#/components/responses/RateLimited' }
+
+/auth/resend-code:
+  post:
+    tags: [Authentication]
+    summary: Send a new 6-digit code
+    security: []
+    description: |
+      Invalidates any outstanding code and issues a new one. Subject to a
+      60-second cooldown per email. Returns `200` even for unknown addresses so
+      the endpoint cannot be used to discover which emails are registered.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email]
+            properties:
+              email: { type: string, format: email }
+              purpose:
+                type: string
+                enum: [signup, login, password_reset]
+                default: signup
+    responses:
+      '200':
+        description: Code sent (or silently ignored for an unknown email).
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { $ref: '#/components/schemas/OtpChallenge' }
+      '429': { $ref: '#/components/responses/RateLimited' }
+
+/auth/login:
+  post:
+    tags: [Authentication]
+    summary: Sign in with email and password
+    security: []
+    description: |
+      Returns a session on success.
+
+      If the account exists but the email was never confirmed, this returns
+      `403` with `details.action = "verify_email"` **and automatically sends a
+      fresh code**. Clients should branch on that action and navigate straight
+      to the code entry screen.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/LoginRequest' }
+    responses:
+      '200':
+        description: Signed in.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { $ref: '#/components/schemas/AuthResult' }
+      '401':
+        description: Email or password is incorrect. Deliberately does not say which.
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ErrorResponse' }
+      '403':
+        description: Email unconfirmed, or the account is suspended.
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ErrorResponse' }
+            example:
+              success: false
+              error:
+                code: forbidden
+                message: Your email is not confirmed yet. We have sent you a new code.
+                details: { action: verify_email, email: amina@example.com }
+      '429': { $ref: '#/components/responses/RateLimited' }
+
+/auth/refresh:
+  post:
+    tags: [Authentication]
+    summary: Renew an expired access token
+    security: []
+    description: |
+      Mobile clients should call this when `expiresAt` is within 60 seconds
+      rather than waiting for a 401. Returns a rotated refresh token — store
+      the new one and discard the old.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [refreshToken]
+            properties:
+              refreshToken: { type: string }
+    responses:
+      '200':
+        description: New session issued.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { $ref: '#/components/schemas/Session' }
+      '401': { $ref: '#/components/responses/Unauthorized' }
+
+/auth/logout:
+  post:
+    tags: [Authentication]
+    summary: End the session
+    description: Revokes the refresh token family so the session cannot be resumed.
+    responses:
+      '200':
+        description: Signed out.
+      '401': { $ref: '#/components/responses/Unauthorized' }
+
+/auth/forgot-password:
+  post:
+    tags: [Authentication]
+    summary: Send a password reset code
+    security: []
+    description: Always returns `200`, whether or not the email is registered.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email]
+            properties:
+              email: { type: string, format: email }
+    responses:
+      '200': { description: If the account exists, a code has been sent. }
+      '429': { $ref: '#/components/responses/RateLimited' }
+
+/auth/verify-reset-code:
+  post:
+    tags: [Authentication]
+    summary: Validate a reset code and receive a reset token
+    security: []
+    description: |
+      Step two of three. Splitting verification from the password change means
+      the new password never travels in the same request as the OTP, and the
+      client can validate the code before rendering the password form.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/VerifyEmailRequest' }
+    responses:
+      '200':
+        description: Code accepted. Use `resetToken` within its lifetime.
+        content:
+          application/json:
+            example:
+              success: true
+              data: { resetToken: eyJhbGciOiJI..., expiresIn: 3600 }
+      '401': { $ref: '#/components/responses/Unauthorized' }
+
+/auth/reset-password:
+  post:
+    tags: [Authentication]
+    summary: Set a new password using a reset token
+    security: []
+    description: Step three. Sends a confirmation email noting the time and IP.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [resetToken, newPassword]
+            properties:
+              resetToken: { type: string }
+              newPassword: { type: string, minLength: 8 }
+    responses:
+      '200': { description: Password updated. }
+      '401': { $ref: '#/components/responses/Unauthorized' }
+      '422': { $ref: '#/components/responses/ValidationError' }
+
+/auth/change-password:
+  post:
+    tags: [Authentication]
+    summary: Change password while signed in
+    description: Requires the current password. Sends a security confirmation email.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [currentPassword, newPassword]
+            properties:
+              currentPassword: { type: string }
+              newPassword: { type: string, minLength: 8 }
+    responses:
+      '200': { description: Password updated. }
+      '401': { $ref: '#/components/responses/Unauthorized' }
+      '422': { $ref: '#/components/responses/ValidationError' }
+
+/auth/me:
+  get:
+    tags: [Authentication]
+    summary: Current user
+    description: Cheap call — use it on app boot to validate a stored session.
+    responses:
+      '200':
+        description: The signed-in user.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { $ref: '#/components/schemas/UserProfile' }
+      '401': { $ref: '#/components/responses/Unauthorized' }

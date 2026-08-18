@@ -1,0 +1,96 @@
+/users/me:
+  get:
+    tags: [Users]
+    summary: Get your own full profile
+    responses:
+      '200':
+        description: Full profile including private fields.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { $ref: '#/components/schemas/UserProfile' }
+      '401': { $ref: '#/components/responses/Unauthorized' }
+  patch:
+    tags: [Users]
+    summary: Update your profile
+    description: |
+      Partial update — send only the fields you are changing. `role`,
+      `is_verified`, and `is_suspended` are not accepted here and are silently
+      ignored; they are staff-controlled.
+
+      Setting `fullName`, `country`, and `phone` flips `profile_completed` to true.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              fullName: { type: string }
+              phone: { type: string }
+              avatarUrl: { type: string, format: uri }
+              residentialAddress: { type: string }
+              dateOfBirth: { type: string, format: date }
+              gender: { type: string, enum: [male, female, other, prefer_not_to_say] }
+              country: { type: string }
+              state: { type: string }
+              city: { type: string }
+              zipCode: { type: string }
+              nationality: { type: string }
+    responses:
+      '200':
+        description: Updated profile.
+      '422': { $ref: '#/components/responses/ValidationError' }
+
+/users/me/preferences:
+  patch:
+    tags: [Users]
+    summary: Update notification preferences
+    description: |
+      Controls which transports the notification fan-out uses. Keys may be a
+      channel (`email`, `push`) or a channel-plus-type pair (`push_message`,
+      `email_verification`). Setting a key to `false` suppresses it.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [preferences]
+            properties:
+              preferences:
+                type: object
+                additionalProperties: { type: boolean }
+    responses:
+      '200': { description: Preferences saved. }
+
+/users/me/dashboard:
+  get:
+    tags: [Users]
+    summary: Dashboard counters
+    description: All header counts in one round trip, so the dashboard needs a single request.
+    responses:
+      '200':
+        description: Counters.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { $ref: '#/components/schemas/DashboardSummary' }
+
+/users/{id}:
+  get:
+    tags: [Users]
+    summary: Public profile of another user
+    security: []
+    description: Returns public fields plus that user's active listings.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    responses:
+      '200': { description: Public profile with listings. }
+      '404': { $ref: '#/components/responses/NotFound' }

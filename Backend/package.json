@@ -1,0 +1,39 @@
+{
+  "name": "lizexpress-api",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "LizExpress v2 REST API \u2014 swap marketplace backend",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npm run docs:bundle && node --watch src/server.js",
+    "start": "node src/server.js",
+    "lint": "eslint src",
+    "docs:bundle": "node scripts/bundle-docs.mjs",
+    "docs:lint": "redocly lint docs/openapi.yaml",
+    "vercel-build": "npm run docs:bundle"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "compression": "^1.7.4",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "js-yaml": "^4.3.1",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "resend": "^4.0.0",
+    "swagger-ui-express": "^5.0.1",
+    "web-push": "^3.6.7",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@redocly/cli": "^1.25.5",
+    "eslint": "^9.11.1"
+  }
+}

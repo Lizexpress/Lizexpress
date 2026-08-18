@@ -1,0 +1,81 @@
+/verifications/me:
+  get:
+    tags: [Verification]
+    summary: Your verification status
+    description: |
+      Drives the KYC screen. `canSubmit` tells the client whether to show the
+      upload form or a waiting state, so it never needs to infer that from status.
+      `reviewerNotes` is only populated when the submission was rejected.
+    responses:
+      '200':
+        description: Current status.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { $ref: '#/components/schemas/VerificationStatus' }
+
+/verifications/documents/{kind}:
+  post:
+    tags: [Verification]
+    summary: Upload one KYC document
+    description: |
+      `multipart/form-data` with a single `file` field. Max 12MB. Accepts
+      jpeg, png, webp, heic, pdf.
+
+      **Returns a storage path, not a URL.** Documents go to a private bucket
+      with no public route. Pass the returned paths to `POST /verifications`.
+      Only the admin review endpoint can turn a path into a viewable link, and
+      only as a 5-minute signed URL.
+    parameters:
+      - name: kind
+        in: path
+        required: true
+        schema: { type: string, enum: [identity_front, identity_back, address, selfie] }
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              file: { type: string, format: binary }
+    responses:
+      '201':
+        description: Stored.
+        content:
+          application/json:
+            example:
+              success: true
+              data: { path: kyc/6f1c9e2a/identity_front-1755100000-9f3b.jpg, kind: identity_front }
+      '400': { $ref: '#/components/responses/BadRequest' }
+
+/verifications:
+  post:
+    tags: [Verification]
+    summary: Submit documents for review
+    description: |
+      Queues the submission and emails a confirmation with a reference number.
+      Rejected with `409` if a submission is already pending or under review,
+      or if the user is already verified.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/VerificationSubmission' }
+    responses:
+      '201':
+        description: Submitted.
+        content:
+          application/json:
+            example:
+              success: true
+              data:
+                id: 3a7f2b91-4c8e-4d1a-9f62-7b5c3e8d1a04
+                reference: LX-KYC-M3F9A2K1-8BQ4
+                status: pending
+                submittedAt: '2026-08-14T09:41:22.000Z'
+      '409': { $ref: '#/components/responses/Conflict' }
+      '422': { $ref: '#/components/responses/ValidationError' }

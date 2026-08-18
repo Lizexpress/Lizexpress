@@ -1,0 +1,73 @@
+BadRequest:
+  description: The request was understood but could not be processed.
+  content:
+    application/json:
+      schema: { $ref: '#/components/schemas/ErrorResponse' }
+      example:
+        success: false
+        error:
+          code: bad_request
+          message: This item needs a valid estimated value before it can be published.
+
+Unauthorized:
+  description: Missing, expired, or invalid access token.
+  content:
+    application/json:
+      schema: { $ref: '#/components/schemas/ErrorResponse' }
+      example:
+        success: false
+        error: { code: unauthorized, message: Session is invalid or has expired. }
+
+Forbidden:
+  description: Authenticated, but not permitted to perform this action.
+  content:
+    application/json:
+      schema: { $ref: '#/components/schemas/ErrorResponse' }
+      example:
+        success: false
+        error:
+          code: forbidden
+          message: Your identity must be verified before you can do this.
+          details: { action: complete_verification }
+
+NotFound:
+  description: The resource does not exist, or is not visible to this caller.
+  content:
+    application/json:
+      schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+Conflict:
+  description: The request conflicts with the current state of the resource.
+  content:
+    application/json:
+      schema: { $ref: '#/components/schemas/ErrorResponse' }
+      example:
+        success: false
+        error: { code: conflict, message: You already have a submission under review. }
+
+ValidationError:
+  description: One or more fields failed validation. `details` lists each field.
+  content:
+    application/json:
+      schema: { $ref: '#/components/schemas/ErrorResponse' }
+      example:
+        success: false
+        error:
+          code: validation_error
+          message: Some fields need your attention.
+          details:
+            - { field: password, message: Include at least one uppercase letter., code: invalid_string }
+            - { field: images, message: Add at least one photo., code: too_small }
+
+RateLimited:
+  description: Too many requests.
+  headers:
+    RateLimit-Reset:
+      schema: { type: integer }
+      description: Seconds until the window resets.
+  content:
+    application/json:
+      schema: { $ref: '#/components/schemas/ErrorResponse' }
+
+NoContent:
+  description: Completed successfully. No body returned.

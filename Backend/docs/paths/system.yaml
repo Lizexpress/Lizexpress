@@ -1,0 +1,48 @@
+/health:
+  get:
+    tags: [System]
+    summary: Liveness check
+    security: []
+    description: Used by uptime monitoring. Does not touch the database.
+    responses:
+      '200':
+        description: Service is up.
+        content:
+          application/json:
+            example:
+              success: true
+              data: { status: ok, service: lizexpress-api, version: 2.0.0, environment: production }
+
+/testimonials:
+  get:
+    tags: [System]
+    summary: Approved testimonials
+    security: []
+    description: Powers the landing page. Returns approved feedback rated 4 or above.
+    responses:
+      '200': { description: Testimonials. }
+
+/feedback:
+  post:
+    tags: [System]
+    summary: Submit feedback
+    security: []
+    description: |
+      Accepts anonymous submissions; if a valid token is present the feedback is
+      attributed to that user. Testimonial-type entries enter the moderation
+      queue and only appear publicly once staff approve them.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [message]
+            properties:
+              type: { type: string, enum: [bug, suggestion, testimonial, complaint, other], default: suggestion }
+              rating: { type: integer, minimum: 1, maximum: 5 }
+              message: { type: string, minLength: 5, maxLength: 2000 }
+              pageUrl: { type: string }
+    responses:
+      '201': { description: Received. }
+      '422': { $ref: '#/components/responses/ValidationError' }

@@ -2,100 +2,83 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/preview.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-    <script src="https://checkout.flutterwave.com/v3.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#4A0E67" />
 
-    <!-- Primary Meta Tags -->
-    <title>LizExpress - Swap What You Have for What You Need!</title>
-    <meta name="title" content="LizExpress - Swap What You Have for What You Need!" />
-    <meta name="description" content="LizExpress is Nigeria's leading swap marketplace where you can trade items you have for what you need. Join thousands of smart swappers today and experience cashless exchange made easy!" />
-    <meta name="keywords" content="swap marketplace, barter system, exchange platform, trade items, online trade Nigeria, LizExpress, swap goods, trade services, barter Nigeria, exchange items without cash, list and swap, trade community" />
-    <meta name="author" content="LizExpress Ltd" />
-    <meta name="robots" content="index, follow" />
-    <meta name="language" content="English" />
-    <meta name="revisit-after" content="7 days" />
-    <meta name="theme-color" content="#9333ea" />
-  
-    <!-- Canonical URL -->
+    <title>LizExpress — Swap What You Have for What You Need</title>
+    <meta name="description" content="Nigeria's swap marketplace. List what you no longer need, say what you want in return, and trade without cash." />
+
+    <!--
+      Performance: fonts are the single biggest render-blocker on a marketplace.
+      Preconnect opens the TLS handshake early; the stylesheet loads async via
+      the print/onload swap so it never blocks first paint. display=swap means
+      text is visible immediately in the fallback face.
+    -->
+    <link rel="preconnect" href="https://api.fontshare.com" />
+    <link rel="dns-prefetch" href="https://checkout.flutterwave.com" />
+    <!-- LCP element: the first carousel slide. Preloaded so it is not queued behind the bundle. -->
+    <link rel="preload" as="image" href="/hero/3.webp" type="image/webp" fetchpriority="high" />
+    <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&f[]=satoshi@300,400,500,700&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&f[]=satoshi@300,400,500,700&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=clash-display@500,600,700&f[]=satoshi@300,400,500,700&display=swap" />
+    </noscript>
+
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
     <link rel="canonical" href="https://lizexpressltd.com/" />
-  
-    <!-- Open Graph / Facebook -->
+
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://lizexpressltd.com/" />
-    <meta property="og:title" content="LizExpress - Swap What You Have for What You Need!" />
-    <meta property="og:description" content="Nigeria’s trusted swap marketplace for trading goods and services. List what you have and get what you need — no cash required!" />
-    <meta property="og:image" content="https://lizexpressltd.com/preview.png" />
+    <meta property="og:title" content="LizExpress — Swap What You Have for What You Need" />
+    <meta property="og:description" content="Nigeria's swap marketplace. Trade goods and services without cash." />
+    <meta property="og:image" content="https://lizexpressltd.com/og-image.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:site_name" content="LizExpress Ltd" />
-    <meta property="og:locale" content="en_US" />
-  
-    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="LizExpress - Swap What You Have for What You Need!" />
-    <meta name="twitter:description" content="Join Nigeria’s No.1 swap marketplace and exchange your goods or services without cash. Sustainable, simple, and smart!" />
-    <meta name="twitter:image" content="https://lizexpressltd.com/preview.png" />
     <meta name="twitter:creator" content="@lizexpressltd" />
-  
-    <!-- Geographic Tags (Local SEO) -->
+
     <meta name="geo.region" content="NG-KN" />
     <meta name="geo.placename" content="Kano" />
-    <meta name="geo.position" content="12.0022;8.5919" />
-    <meta name="ICBM" content="12.0022, 8.5919" />
-  
-    <!-- Verification Tags -->
-    <meta name="google-site-verification" content="MT6_Q7XhzdJDfopWx2bOrvg2FdsdVUW5DFM25rJHioM" />
-    <meta name="msvalidate.01" content="F9EF8387E091C166A12A05BE3A42FE60" />
-  
-    <!-- Favicon and Icons -->
-    <link rel="icon" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/android-chrome-192x192.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/android-chrome-192x192.png" />
-    <link rel="manifest" href="/manifest.json" />
-  
-    <!-- Preconnect for Performance -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  
-    <!-- External Scripts -->
-    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-    <script src="https://checkout.flutterwave.com/v3.js"></script>
-  
-    <!-- Structured Data (JSON-LD Schema) -->
+
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      "name": "LizExpress Ltd",
-      "alternateName": "LizExpress",
-      "url": "https://lizexpressltd.com",
-      "logo": "https://lizexpressltd.com/preview.png",
-      "image": "https://lizexpressltd.com/preview.png",
-      "description": "LizExpress is Nigeria's leading swap marketplace for trading goods and services without cash. List what you have and get what you need easily.",
-      "address": {
-        "@type": "PostalAddress",
-        "addressLocality": "Kano",
-        "addressCountry": "Nigeria"
-      },
-      "contactPoint": {
-        "@type": "ContactPoint",
-        "telephone": "+234-901-000-0000",
-        "contactType": "customer service",
-        "areaServed": "NG"
-      },
-      "sameAs": [
-        "https://www.instagram.com/lizexpressltd/",
-        "https://www.facebook.com/lizexpressltd",
-        "https://x.com/lizexpressltd"
-      ]
-    }
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "LizExpress Ltd",
+        "url": "https://lizexpressltd.com",
+        "logo": "https://lizexpressltd.com/logo-wordmark@2x.png",
+        "address": { "@type": "PostalAddress", "addressLocality": "Kano", "addressCountry": "Nigeria" },
+        "sameAs": [
+          "https://www.instagram.com/lizexpressltd/",
+          "https://www.facebook.com/lizexpressltd",
+          "https://x.com/lizexpressltd"
+        ]
+      }
     </script>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <!--
+      Flutterwave checkout. Deferred so it never blocks first paint — the
+      payment screen checks for window.FlutterwaveCheckout and shows a clear
+      error if it has not loaded, rather than failing silently.
+      Only the PUBLIC key is ever passed to it; the secret stays on the server.
+    -->
+    <script src="https://checkout.flutterwave.com/v3.js" defer></script>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

@@ -1,0 +1,98 @@
+# ═══════════════════════════════════════════════════════════
+#  Path aggregator. Referenced by openapi.yaml.
+#  Each module lives in its own file so endpoints stay easy to
+#  find and review — none of this is generated from code comments.
+# ═══════════════════════════════════════════════════════════
+
+# System
+/health:        { $ref: './system.yaml#/~1health' }
+/testimonials:  { $ref: './system.yaml#/~1testimonials' }
+/feedback:      { $ref: './system.yaml#/~1feedback' }
+
+# Authentication
+/auth/register:           { $ref: './auth.yaml#/~1auth~1register' }
+/auth/verify-email:       { $ref: './auth.yaml#/~1auth~1verify-email' }
+/auth/resend-code:        { $ref: './auth.yaml#/~1auth~1resend-code' }
+/auth/login:              { $ref: './auth.yaml#/~1auth~1login' }
+/auth/refresh:            { $ref: './auth.yaml#/~1auth~1refresh' }
+/auth/logout:             { $ref: './auth.yaml#/~1auth~1logout' }
+/auth/forgot-password:    { $ref: './auth.yaml#/~1auth~1forgot-password' }
+/auth/verify-reset-code:  { $ref: './auth.yaml#/~1auth~1verify-reset-code' }
+/auth/reset-password:     { $ref: './auth.yaml#/~1auth~1reset-password' }
+/auth/change-password:    { $ref: './auth.yaml#/~1auth~1change-password' }
+/auth/me:                 { $ref: './auth.yaml#/~1auth~1me' }
+
+# Users
+/users/me:              { $ref: './users.yaml#/~1users~1me' }
+/users/me/preferences:  { $ref: './users.yaml#/~1users~1me~1preferences' }
+/users/me/dashboard:    { $ref: './users.yaml#/~1users~1me~1dashboard' }
+/users/{id}:            { $ref: './users.yaml#/~1users~1{id}' }
+
+# Items
+/items:                 { $ref: './items.yaml#/~1items' }
+/items/categories:      { $ref: './items.yaml#/~1items~1categories' }
+/items/upload:          { $ref: './items.yaml#/~1items~1upload' }
+/items/me/listings:     { $ref: './items.yaml#/~1items~1me~1listings' }
+/items/me/favorites:    { $ref: './items.yaml#/~1items~1me~1favorites' }
+/items/{id}:            { $ref: './items.yaml#/~1items~1{id}' }
+/items/{id}/swapped:    { $ref: './items.yaml#/~1items~1{id}~1swapped' }
+/items/{id}/favorite:   { $ref: './items.yaml#/~1items~1{id}~1favorite' }
+
+# Chats
+/chats:                 { $ref: './chats.yaml#/~1chats' }
+/chats/unread-count:    { $ref: './chats.yaml#/~1chats~1unread-count' }
+/chats/{id}:            { $ref: './chats.yaml#/~1chats~1{id}' }
+/chats/{id}/messages:   { $ref: './chats.yaml#/~1chats~1{id}~1messages' }
+/chats/{id}/typing:     { $ref: './chats.yaml#/~1chats~1{id}~1typing' }
+/chats/{id}/read:       { $ref: './chats.yaml#/~1chats~1{id}~1read' }
+/chats/{id}/archive:    { $ref: './chats.yaml#/~1chats~1{id}~1archive' }
+
+# Verification (applicant)
+/verifications:                   { $ref: './verifications.yaml#/~1verifications' }
+/verifications/me:                { $ref: './verifications.yaml#/~1verifications~1me' }
+/verifications/documents/{kind}:  { $ref: './verifications.yaml#/~1verifications~1documents~1{kind}' }
+
+# Payments
+/payments/quote/{itemId}:   { $ref: './payments.yaml#/~1payments~1quote~1{itemId}' }
+/payments/initialise:       { $ref: './payments.yaml#/~1payments~1initialise' }
+/payments/confirm:          { $ref: './payments.yaml#/~1payments~1confirm' }
+/payments/webhook:          { $ref: './payments.yaml#/~1payments~1webhook' }
+/payments/history:          { $ref: './payments.yaml#/~1payments~1history' }
+/payments/receipt/{txRef}:  { $ref: './payments.yaml#/~1payments~1receipt~1{txRef}' }
+
+# Notifications
+/notifications:                     { $ref: './notifications.yaml#/~1notifications' }
+/notifications/unread-count:        { $ref: './notifications.yaml#/~1notifications~1unread-count' }
+/notifications/read-all:            { $ref: './notifications.yaml#/~1notifications~1read-all' }
+/notifications/{id}:                { $ref: './notifications.yaml#/~1notifications~1{id}' }
+/notifications/{id}/read:           { $ref: './notifications.yaml#/~1notifications~1{id}~1read' }
+/notifications/push/public-key:     { $ref: './notifications.yaml#/~1notifications~1push~1public-key' }
+/notifications/push/subscribe:      { $ref: './notifications.yaml#/~1notifications~1push~1subscribe' }
+/notifications/push/unsubscribe:    { $ref: './notifications.yaml#/~1notifications~1push~1unsubscribe' }
+
+# Admin
+/admin/overview:                      { $ref: './admin.yaml#/~1admin~1overview' }
+/admin/timeseries:                    { $ref: './admin.yaml#/~1admin~1timeseries' }
+/admin/analytics:                     { $ref: './admin.yaml#/~1admin~1analytics' }
+/admin/health:                        { $ref: './admin.yaml#/~1admin~1health' }
+/admin/verifications:                 { $ref: './admin.yaml#/~1admin~1verifications' }
+/admin/verifications/stats:           { $ref: './admin.yaml#/~1admin~1verifications~1stats' }
+/admin/verifications/{id}:            { $ref: './admin.yaml#/~1admin~1verifications~1{id}' }
+/admin/verifications/{id}/claim:      { $ref: './admin.yaml#/~1admin~1verifications~1{id}~1claim' }
+/admin/verifications/{id}/decision:   { $ref: './admin.yaml#/~1admin~1verifications~1{id}~1decision' }
+/admin/verifications/{id}/resubmit:   { $ref: './admin.yaml#/~1admin~1verifications~1{id}~1resubmit' }
+/admin/users:                         { $ref: './admin.yaml#/~1admin~1users' }
+/admin/users/invite:                  { $ref: './admin.yaml#/~1admin~1users~1invite' }
+/admin/users/{id}:                    { $ref: './admin.yaml#/~1admin~1users~1{id}' }
+/admin/users/{id}/suspension:         { $ref: './admin.yaml#/~1admin~1users~1{id}~1suspension' }
+/admin/users/{id}/role:               { $ref: './admin.yaml#/~1admin~1users~1{id}~1role' }
+/admin/items:                         { $ref: './admin.yaml#/~1admin~1items' }
+/admin/items/{id}/status:             { $ref: './admin.yaml#/~1admin~1items~1{id}~1status' }
+/admin/payments:                      { $ref: './admin.yaml#/~1admin~1payments' }
+/admin/messages/recent:               { $ref: './admin.yaml#/~1admin~1messages~1recent' }
+/admin/tasks:                         { $ref: './admin.yaml#/~1admin~1tasks' }
+/admin/tasks/{id}:                    { $ref: './admin.yaml#/~1admin~1tasks~1{id}' }
+/admin/settings:                      { $ref: './admin.yaml#/~1admin~1settings' }
+/admin/feedback:                      { $ref: './admin.yaml#/~1admin~1feedback' }
+/admin/feedback/{id}:                 { $ref: './admin.yaml#/~1admin~1feedback~1{id}' }
+/admin/audit-log:                     { $ref: './admin.yaml#/~1admin~1audit-log' }

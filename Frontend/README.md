@@ -1,225 +1,215 @@
-# LizExpress - Production Deployment Guide
+# LizExpress Web
 
-## 🚀 Production-Ready Features
+React 18 + Vite frontend for the LizExpress swap marketplace. Pure JavaScript
+(JSX), no TypeScript. Consumes the same API as the forthcoming mobile app.
 
-### ✅ Complete Admin System
-- **Real-time dashboard** with live user statistics
-- **User management** with verification and deletion capabilities
-- **Message monitoring** with real chat data
-- **Task management** with manual task creation
-- **Country-wise analytics** with revenue tracking
-- **System settings** for platform configuration
-
-### ✅ Payment Integration
-- **Flutterwave payment gateway** for listing fees
-- **5% listing fee** based on item estimated value
-- **Terms & conditions modal** before payment
-- **Secure payment processing**
-
-### ✅ Email Customization Setup
-- **Custom email templates** for LizExpress branding
-- **Domain-specific redirects** to lizexpressltd.com
-- **Professional email styling**
-
-### ✅ Real-Time Data Integration
-- **Live testimonials** from actual user interactions
-- **Real user statistics** in admin dashboard
-- **Live message monitoring** from actual chats
-- **Dynamic revenue tracking** from listing fees
-
-## 🔧 Deployment Steps
-
-### 1. Domain Setup (lizexpressltd.com)
 ```bash
-# Update environment variables for production
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-### 2. Supabase Configuration
-
-#### A. Site URL Configuration
-1. Go to Supabase Dashboard → Authentication → URL Configuration
-2. Set **Site URL**: `https://lizexpressltd.com`
-3. Add **Redirect URLs**:
-   - `https://lizexpressltd.com/email-confirmation`
-   - `https://lizexpressltd.com/auth/callback`
-
-#### B. Email Template Customization
-1. Go to Supabase Dashboard → Authentication → Email Templates
-2. Customize **Confirm signup** template:
-
-```html
-Subject: Welcome to LizExpress - Confirm Your Email
-
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Welcome to LizExpress</title>
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: #4A0E67; color: white; padding: 20px; text-align: center; }
-        .content { padding: 20px; background: #f9f9f9; }
-        .button { display: inline-block; background: #F7941D; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; }
-        .footer { text-align: center; padding: 20px; color: #666; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Welcome to LizExpress!</h1>
-            <p>Swap what you have for what you need</p>
-        </div>
-        <div class="content">
-            <h2>Confirm Your Email Address</h2>
-            <p>Hi there!</p>
-            <p>Thank you for signing up for LizExpress. To complete your registration and start swapping items, please confirm your email address by clicking the button below:</p>
-            <p style="text-align: center; margin: 30px 0;">
-                <a href="{{ .ConfirmationURL }}" class="button">Confirm Email Address</a>
-            </p>
-            <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-            <p style="word-break: break-all; color: #666;">{{ .ConfirmationURL }}</p>
-            <p>This link will expire in 24 hours for security reasons.</p>
-            <p>If you didn't create an account with LizExpress, you can safely ignore this email.</p>
-        </div>
-        <div class="footer">
-            <p>© 2025 LizExpress Ltd. All rights reserved.</p>
-            <p>Visit us at <a href="https://lizexpressltd.com">lizexpressltd.com</a></p>
-        </div>
-    </div>
-</body>
-</html>
-```
-
-### 3. Payment Gateway Setup
-
-#### Flutterwave Configuration
-1. Get your Flutterwave public key from dashboard
-2. Update in `src/components/PaymentModal.tsx`:
-```javascript
-public_key: "YOUR_ACTUAL_FLUTTERWAVE_PUBLIC_KEY"
-```
-
-### 4. Admin Access
-- **URL**: `https://lizexpressltd.com/admin`
-- **Credentials**: 
-  - Email: `admin@lizexpress.com`
-  - Password: `Lizexpress@2025`
-
-### 5. Build and Deploy
-```bash
-# Install dependencies
+cp .env.example .env    # fill in the values
 npm install
-
-# Build for production
-npm run build
-
-# Deploy to your hosting provider
-# (Netlify, Vercel, or your preferred platform)
+npm run dev             # http://localhost:5173
 ```
 
-## 📊 Admin Features
+`npm run dev` proxies `/api` to `http://localhost:8080`, so run the backend
+alongside it and leave `VITE_API_URL` at its relative default.
 
-### Dashboard Overview
-- **Total Users**: Real-time user count from database
-- **Active Users**: Simulated online status
-- **Total Items**: Actual listed items count
-- **Revenue Tracking**: 5% listing fees from real transactions
-- **Pending Verifications**: Users awaiting manual verification
+---
 
-### User Management
-- **View all users** with real profile data
-- **Verify users** manually with notification system
-- **Delete users** with confirmation dialogs
-- **Search and filter** capabilities
-- **Country-wise statistics** with flag emojis
+## Brand tokens (locked)
 
-### Message Monitoring
-- **Real-time messages** from actual user chats
-- **User activity tracking** with locations
-- **Item-specific chat monitoring**
+Carried over from v1 unchanged. `tailwind.config.js` derives every tint and
+shade from these two hexes so hover, disabled, and surface states stop being
+invented per component.
 
-### Task Management
-- **System-generated tasks** based on platform activity
-- **Manual task creation** for custom admin work
-- **Priority levels** (High, Medium, Low)
-- **Status tracking** (Pending, In Progress, Completed)
+| Token | Hex | Role |
+|---|---|---|
+| `purple-600` | `#4A0E67` | Primary — structure, headers, nav |
+| `purple-700` | `#3A0B50` | Primary pressed |
+| `orange-500` | `#F7941D` | Accent — **actions only** |
+| `orange-600` | `#E68A1C` | Accent pressed |
+| `orange-50` | `#FFF5E6` | Warm surface |
 
-### Real-Time Features
-- **Live data updates** every 30 seconds
-- **Real-time subscriptions** to database changes
-- **Instant notifications** for admin actions
-- **Dynamic statistics** based on actual usage
+The discipline that keeps it from looking generic: purple carries structure,
+orange is reserved strictly for the one action that moves a user forward. If
+two orange buttons appear on a screen, one of them is wrong.
 
-## 🎯 Customer Features
+**Type:** Clash Display for headings, Satoshi for body — both from Fontshare,
+loaded async via the print/onload swap so they never block first paint.
 
-### Real Testimonials
-- **Dynamic testimonials** from actual user interactions
-- **Real user data** including names, locations, and avatars
-- **Authentic reviews** based on successful swaps
-- **Fallback testimonials** for new platforms
+**Brand assets:** the logo, favicons, and the nine hero banners all come from
+the v1 repo. See `../brand-assets/README.md` — the masters are kept out of
+`public/` on purpose.
 
-### Payment Integration
-- **5% listing fee** calculated from item value
-- **Flutterwave payment gateway** integration
-- **Terms & conditions** modal before payment
-- **Secure transaction processing**
+**Signature element:** the swap pair. Every listing renders *what you have* ↔
+*what you want*, joined by a hand-drawn exchange glyph (`SwapGlyph.jsx`). A
+barter listing is not a product listing, and the card is built to say so.
 
-## 🔒 Security Features
+---
 
-- **Row Level Security** on all database tables
-- **Admin authentication** separate from user auth
-- **Secure payment processing** with Flutterwave
-- **Email verification** required for all users
-- **CAPTCHA protection** on forms
-- **Real-time data validation**
+## Structure
 
-## 📱 Mobile Responsive
+```
+src/
+├── lib/          api client, realtime loader, formatters
+├── context/      AuthContext (state machine), ToastContext
+├── hooks/        realtime, notifications, push, debounce
+├── components/
+│   ├── ui/       Button, Input, Card, Modal, Badge, Avatar, Skeleton…
+│   ├── layout/   Header, Footer, MobileNav, AppLayout
+│   └── items/    SwapGlyph, ItemCard, ItemGrid
+├── pages/        public, auth, dashboard
+├── admin/        console — layout, DataTable, 9 screens
+└── routes/       RequireAuth / RequireVerified / RequireStaff
+```
 
-- **Fully responsive design** for all screen sizes
-- **Touch-friendly interface** for mobile admin access
-- **Optimized performance** for mobile devices
-- **Progressive web app** capabilities
+### The API client
 
-## 🎨 Brand Consistency
+`lib/api.js` is the only file that talks HTTP. It unwraps the
+`{ success, data, meta }` envelope, converts errors into an `ApiError` exposing
+`fieldErrors` ready to drop into a form, and refreshes an expired access token
+then replays the request once. Concurrent 401s share a single refresh promise —
+otherwise five parallel requests would fire five refreshes and invalidate each
+other.
 
-- **LizExpress colors**: Purple (#4A0E67) and Orange (#F7941D)
-- **Professional styling** throughout admin panel
-- **Consistent branding** in email templates
-- **Modern UI/UX** design
+Screens import from the `endpoints` map rather than writing URL strings, so
+renaming a route is one edit.
 
-## 🚀 Ready for Production
+### Auth state
 
-Your LizExpress platform is now **100% production-ready** with:
-- ✅ Complete admin system with real-time data
-- ✅ Payment integration with Flutterwave
-- ✅ Custom email templates for lizexpressltd.com
-- ✅ Real testimonials from user interactions
-- ✅ Mobile-responsive design
-- ✅ Security best practices
-- ✅ Live revenue tracking
-- ✅ User management tools
-- ✅ Real-time notifications
+`AuthContext` exposes `status` as `'loading' | 'authenticated' | 'anonymous'`
+rather than a pair of booleans. Guards render a loader while loading instead of
+redirecting, which is what removes the flash of the login screen before a
+signed-in user's page appears.
 
-## 🌐 Domain Access
+---
 
-After purchasing and setting up `lizexpressltd.com`:
+## Routing
 
-- **Main Site**: `https://lizexpressltd.com`
-- **Admin Panel**: `https://lizexpressltd.com/admin`
-- **Email Verification**: `https://lizexpressltd.com/email-confirmation`
+All 36 routes resolve, and every internal link target was verified against the
+route tree — no link renders and then 404s. `routes/routeMap.js` owns the lazy
+loaders, and both `App.jsx` and the prefetcher import the same functions, so a
+prefetch and the later navigation share one module promise.
 
-Deploy to `lizexpressltd.com` and start your swap marketplace! 🎉
+**Loading delay is handled in two layers:**
 
-## 📈 Analytics & Monitoring
+1. **Intent prefetch.** `SmartLink` warms the destination chunk on
+   `mouseEnter`, `focus`, and `touchStart`. That buys 100–300ms on desktop and
+   ~80ms on a tap — usually enough that the route is already in memory and the
+   loading fallback never renders.
+2. **Idle prefetch.** Once the browser is idle, `prefetchLikelyRoutes` warms
+   the next likely destinations (browse/login/register when signed out;
+   browse/dashboard/chats when signed in). Waiting for idle keeps it from
+   competing with the current page's own work.
 
-The admin dashboard provides comprehensive analytics:
-- **User growth tracking**
-- **Revenue monitoring** from listing fees
-- **Geographic distribution** of users
-- **Platform activity metrics**
-- **Real-time system health**
+`/payment/callback` and `/404` are deliberately excluded — they are reached by
+redirect, never by a hovered link, so a prefetch entry would buy nothing.
 
-Your platform is enterprise-ready for immediate deployment! 🚀
+## Design system
+
+One token set drives both the marketplace and the admin console, so they cannot
+drift into two different products.
+
+| Decision | Why |
+|---|---|
+| Ink softened `#1A1420` → `#241C2C`, body copy at `ink-soft` | Near-black at body size reads as a heavy slab. Headings keep full-strength ink; running it everywhere flattens hierarchy |
+| Headings at weight 600, not 700 | 700 everywhere removes the difference between a page title and a card title |
+| Layered low-opacity shadows (`card` / `hover` / `lift`) | A single dark drop shadow reads as a smudge; layered ones read as elevation |
+| `.card` / `.card-interactive` in the base layer | Hover lift only where the whole surface is a link. A lift on a static panel is noise |
+| Display fallback is system sans, never Georgia | If Fontshare is slow or blocked, headings degrade to sans — a serif fallback changes the page's whole character |
+| No raw hex in components | Every colour goes through a token, so a palette change is one edit |
+
+## Performance
+
+Measured on the production build:
+
+| | Raw | Gzipped |
+|---|---|---|
+| Initial JS | 235 KB | **75 KB** |
+| Hero LCP image | 74 KB | — (already compressed) |
+| CSS | 41 KB | 8 KB |
+
+Three decisions do most of that work:
+
+1. **Every route is lazy.** The landing page does not carry the admin console or
+   the chat client.
+2. **Recharts is not manually chunked.** Naming it as a manual chunk pulled it
+   into the entry's preload graph — every shopper was downloading 380KB of
+   charting for an admin screen they never open. Left to Vite, it lands in the
+   `AdminDashboard` chunk where it belongs.
+3. **Supabase loads on demand.** The realtime SDK is ~215KB and is only needed
+   once a signed-in user subscribes to a channel, so it sits behind a dynamic
+   import. Anonymous visitors never download it.
+
+Fonts load async with `display=swap`; hashed assets are cached for a year while
+`index.html` and `sw.js` are never cached.
+
+---
+
+## Realtime and push
+
+Clients hold one WebSocket to Supabase Realtime; the API broadcasts into
+channels over HTTP. See `../backend/docs/REALTIME.md` for why a `ws` server on
+a serverless platform is not possible.
+
+Web Push is a **free browser standard** — no AWS, no third-party service, no
+billing. You generate a VAPID keypair once (`npx web-push generate-vapid-keys`)
+and the browser vendor's push service delivers the message. Everything degrades
+safely: if the SDK fails, push is unconfigured, or the user denies permission,
+notifications still arrive in-app and by email.
+
+---
+
+## Deploying to Vercel
+
+```bash
+npm i -g vercel
+vercel login
+vercel link
+vercel env add VITE_API_URL production      # https://api.lizexpressltd.com/api/v1
+vercel env add VITE_SUPABASE_URL production
+vercel env add VITE_SUPABASE_ANON_KEY production
+vercel --prod
+```
+
+`vercel.json` sets the Vite framework preset, the SPA rewrite, cache headers,
+and security headers. Add the web origin to `CORS_ORIGINS` on the API.
+
+**Vite env vars are baked in at build time, not read at runtime.** Changing
+`VITE_API_URL` in the dashboard does nothing until you redeploy. If the app
+starts calling the wrong API after an env change, that is why.
+
+Only `VITE_`-prefixed variables reach the browser, and everything with that
+prefix is public by definition — the Supabase anon key is fine there, the
+service-role key never is.
+
+### The SPA rewrite
+
+```
+/((?!assets/|.*\.[a-zA-Z0-9]+$).*)   →   /index.html
+```
+
+A blanket `/(.*)` rewrite would swallow real files and serve HTML for
+`/sw.js`, breaking push registration with a MIME-type error. The negative
+lookahead excludes `/assets/*` and anything with a file extension, so hashed
+bundles, the service worker, the manifest, and icons pass straight through
+while every application route still resolves on a hard refresh or shared link.
+
+### Assets still needed
+
+Drop these into `public/` before going live — they are referenced by
+`index.html` and `manifest.json`:
+
+`favicon.ico` · `favicon-32x32.png` · `apple-touch-icon.png` ·
+`android-chrome-192x192.png` · `android-chrome-512x512.png` · `preview.png` (OG image)
+
+The backend separately needs hosted email images at `{APP_URL}/email-assets/`:
+`logo-white.png` and `social-{instagram,facebook,x,linkedin,whatsapp}.png`.
+Outlook will not render inline SVG, which is why these must be PNGs.
+
+---
+
+## Accessibility floor
+
+Not optional, and already in place: visible keyboard focus everywhere, a skip
+link, focus trapped and restored in modals, `aria-live` toasts, labelled form
+fields wired to their errors via `aria-describedby`, 44px minimum tap targets,
+and `prefers-reduced-motion` respected globally.

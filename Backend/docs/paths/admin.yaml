@@ -1,0 +1,468 @@
+# ═══════════════════════════════════════════════════════════
+#  Admin console. Every route requires a staff role
+#  (moderator | admin | super_admin) on the caller's profile.
+#  There is no separate admin login and no shared password.
+# ═══════════════════════════════════════════════════════════
+
+/admin/overview:
+  get:
+    tags: [Admin]
+    summary: Dashboard headline metrics
+    description: |
+      Every figure is a real aggregate query — user counts, verification queue
+      depth, listing states, and settled revenue. Nothing here is simulated
+      client-side.
+    responses:
+      '200':
+        description: Metrics.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { $ref: '#/components/schemas/AdminOverview' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/admin/timeseries:
+  get:
+    tags: [Admin]
+    summary: Daily revenue and transaction series
+    description: Zero-filled daily buckets, ready to plot without client-side gap handling.
+    parameters:
+      - { name: days, in: query, schema: { type: integer, minimum: 7, maximum: 365, default: 30 } }
+    responses:
+      '200':
+        description: One entry per day.
+        content:
+          application/json:
+            example:
+              success: true
+              data:
+                - { date: '2026-08-12', revenue: 47500, transactions: 3 }
+                - { date: '2026-08-13', revenue: 22500, transactions: 1 }
+
+/admin/analytics:
+  get:
+    tags: [Admin]
+    summary: Users and revenue by country, listings by category
+    responses:
+      '200': { description: Breakdowns. }
+
+/admin/health:
+  get:
+    tags: [Admin]
+    summary: System health
+    description: Live database latency plus which integrations are configured.
+    responses:
+      '200': { description: Health report. }
+
+# ── Verification review — the workflow missing from v1 ──
+
+/admin/verifications:
+  get:
+    tags: [Admin]
+    summary: Verification review queue
+    description: |
+      Defaults to `pending`, **oldest first**, so no applicant is left behind.
+      This list returns metadata only — document URLs are minted per submission
+      when a reviewer opens one.
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      - name: status
+        in: query
+        schema: { type: string, enum: [pending, under_review, approved, rejected, resubmit, all], default: pending }
+      - { name: search, in: query, description: Matches reference or document number., schema: { type: string } }
+      - { name: order, in: query, schema: { type: string, enum: [asc, desc], default: asc } }
+    responses:
+      '200': { description: Paginated queue. }
+
+/admin/verifications/stats:
+  get:
+    tags: [Admin]
+    summary: Queue counts and longest wait
+    responses:
+      '200':
+        description: Counts by status plus `oldestWaitingHours`.
+
+/admin/verifications/{id}:
+  get:
+    tags: [Admin]
+    summary: Open a submission and view the documents
+    description: |
+      Returns the applicant's profile alongside **5-minute signed URLs** for each
+      uploaded document, minted fresh on every request.
+
+      The documents live in a private bucket with no public route; these URLs are
+      the only way to view them. Do not cache or persist them — after
+      `documentsExpireInSeconds` they stop working, which is deliberate.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    responses:
+      '200':
+        description: Submission with signed document URLs.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { $ref: '#/components/schemas/VerificationReviewItem' }
+      '404': { $ref: '#/components/responses/NotFound' }
+
+/admin/verifications/{id}/claim:
+  post:
+    tags: [Admin]
+    summary: Claim a submission for review
+    description: |
+      Moves it to `under_review` and records the reviewer, so two staff members
+      do not review the same submission at once. Broadcasts `verification:claimed`
+      on the admin channel.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    responses:
+      '200': { description: Claimed. Includes signed document URLs. }
+      '409': { $ref: '#/components/responses/Conflict' }
+
+/admin/verifications/{id}/decision:
+  post:
+    tags: [Admin]
+    summary: Approve or reject
+    description: |
+      Approving sets `is_verified` on the user, unlocking listing and messaging.
+      Rejecting requires a `reason`, which is emailed to the applicant along with
+      any free-text `notes`.
+
+      Both outcomes write an audit entry naming the reviewer, and a decision
+      cannot be recorded twice.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/VerificationDecision' }
+          examples:
+            approve:
+              summary: Approve
+              value: { decision: approve }
+            reject:
+              summary: Reject with guidance
+              value:
+                decision: reject
+                reason: document_illegible
+                notes: The date of birth on the ID is not readable. Please retake in better light.
+    responses:
+      '200': { description: Decision recorded. }
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '409': { $ref: '#/components/responses/Conflict' }
+
+/admin/verifications/{id}/resubmit:
+  post:
+    tags: [Admin]
+    summary: Ask for more documentation
+    description: |
+      A softer path than rejection — used when the submission is plausible but
+      incomplete. Reopens the applicant's ability to submit without recording a
+      failure against them.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [notes]
+            properties:
+              notes: { type: string, minLength: 10, maxLength: 1000 }
+    responses:
+      '200': { description: Resubmission requested. }
+
+# ── Users ──
+
+/admin/users:
+  get:
+    tags: [Admin]
+    summary: Search and filter users
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      - { name: search, in: query, schema: { type: string } }
+      - name: status
+        in: query
+        schema: { type: string, enum: [all, verified, unverified, suspended, pending_verification] }
+      - { name: country, in: query, schema: { type: string } }
+      - { name: role, in: query, schema: { type: string, enum: [user, moderator, admin, super_admin] } }
+      - { name: sort, in: query, schema: { type: string, enum: [created_at, full_name, last_seen_at], default: created_at } }
+      - { name: order, in: query, schema: { type: string, enum: [asc, desc], default: desc } }
+    responses:
+      '200': { description: Paginated users. }
+
+/admin/users/{id}:
+  get:
+    tags: [Admin]
+    summary: Full user record
+    description: Profile, email, last sign-in, listings, payments, and verification state in one call.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    responses:
+      '200': { description: User detail. }
+      '404': { $ref: '#/components/responses/NotFound' }
+  delete:
+    tags: [Admin]
+    summary: Delete a user
+    description: |
+      **super_admin only.** Irreversible. Staff accounts must be demoted first.
+      The full record is written to the audit log before deletion.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    responses:
+      '204': { $ref: '#/components/responses/NoContent' }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/admin/users/{id}/suspension:
+  patch:
+    tags: [Admin]
+    summary: Suspend or reinstate an account
+    description: |
+      Suspension is enforced at the auth middleware, so it takes effect on the
+      user's very next request — existing tokens do not keep working. A reason is
+      required and is emailed to the user.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [suspended]
+            properties:
+              suspended: { type: boolean }
+              reason: { type: string, maxLength: 500 }
+    responses:
+      '200': { description: Updated. }
+      '400': { $ref: '#/components/responses/BadRequest' }
+
+/admin/users/{id}/role:
+  patch:
+    tags: [Admin]
+    summary: Change a user's role
+    description: |
+      Requires `admin` or `super_admin`. Only a super_admin may grant
+      `super_admin`, and nobody may change their own role.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [role]
+            properties:
+              role: { type: string, enum: [user, moderator, admin, super_admin] }
+    responses:
+      '200': { description: Role updated. }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/admin/users/invite:
+  post:
+    tags: [Admin]
+    summary: Invite a staff member
+    description: '**super_admin only.** Sends a branded invitation valid for 48 hours.'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email, fullName, role]
+            properties:
+              email: { type: string, format: email }
+              fullName: { type: string }
+              role: { type: string, enum: [moderator, admin] }
+    responses:
+      '201': { description: Invitation sent. }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+# ── Moderation ──
+
+/admin/items:
+  get:
+    tags: [Admin]
+    summary: All listings, any status
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      - { name: q, in: query, schema: { type: string } }
+      - { name: category, in: query, schema: { type: string } }
+    responses:
+      '200': { description: Paginated listings. }
+
+/admin/items/{id}/status:
+  patch:
+    tags: [Admin]
+    summary: Change a listing's status
+    description: Suspending a listing notifies the owner with the reason supplied.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status]
+            properties:
+              status: { type: string, enum: [draft, pending_payment, active, swapped, suspended, archived] }
+              reason: { type: string, maxLength: 500 }
+    responses:
+      '200': { description: Updated. }
+
+/admin/payments:
+  get:
+    tags: [Admin]
+    summary: All payments
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+    responses:
+      '200': { description: Paginated payments. }
+
+/admin/messages/recent:
+  get:
+    tags: [Admin]
+    summary: Recent platform messages
+    description: Moderation feed. Read-only; staff cannot post into user conversations.
+    responses:
+      '200': { description: The 50 most recent messages. }
+
+# ── Tasks ──
+
+/admin/tasks:
+  get:
+    tags: [Admin]
+    summary: List internal tasks
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+    responses:
+      '200': { description: Paginated tasks. }
+  post:
+    tags: [Admin]
+    summary: Create a task
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title]
+            properties:
+              title: { type: string, minLength: 3 }
+              description: { type: string }
+              priority: { type: string, enum: [low, medium, high], default: medium }
+              dueDate: { type: string, format: date-time }
+              assigneeId: { type: string, format: uuid }
+    responses:
+      '201':
+        description: Created.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { $ref: '#/components/schemas/AdminTask' }
+
+/admin/tasks/{id}:
+  patch:
+    tags: [Admin]
+    summary: Update a task
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    responses:
+      '200': { description: Updated. }
+  delete:
+    tags: [Admin]
+    summary: Delete a task
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    responses:
+      '204': { $ref: '#/components/responses/NoContent' }
+
+# ── Settings, feedback, audit ──
+
+/admin/settings:
+  get:
+    tags: [Admin]
+    summary: Platform settings
+    description: Key/value configuration — listing fee, currency, KYC requirement, maintenance mode.
+    responses:
+      '200': { description: All settings. }
+  put:
+    tags: [Admin]
+    summary: Update one setting
+    description: Requires `admin` or `super_admin`. Every change is audited.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [key, value]
+            properties:
+              key: { type: string }
+              value: { description: Any JSON value. }
+    responses:
+      '200': { description: Saved. }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/admin/feedback:
+  get:
+    tags: [Admin]
+    summary: User feedback and testimonial moderation
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      - { name: status, in: query, schema: { type: string, enum: [new, reviewed, approved, dismissed] } }
+      - { name: type, in: query, schema: { type: string } }
+    responses:
+      '200': { description: Paginated feedback. }
+
+/admin/feedback/{id}:
+  patch:
+    tags: [Admin]
+    summary: Moderate a feedback entry
+    description: Approving a testimonial publishes it to the public landing page.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    responses:
+      '200': { description: Updated. }
+
+/admin/audit-log:
+  get:
+    tags: [Admin]
+    summary: Audit trail
+    description: |
+      Append-only record of every privileged action — who did what, to which
+      entity, with before and after state and originating IP.
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      - { name: actorId, in: query, schema: { type: string, format: uuid } }
+      - { name: action, in: query, schema: { type: string } }
+      - { name: entityType, in: query, schema: { type: string } }
+    responses:
+      '200':
+        description: Paginated audit entries.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { type: array, items: { $ref: '#/components/schemas/AuditEntry' } }

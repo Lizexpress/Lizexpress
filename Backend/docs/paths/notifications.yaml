@@ -1,0 +1,103 @@
+/notifications:
+  get:
+    tags: [Notifications]
+    summary: Your notifications
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      - { name: unreadOnly, in: query, schema: { type: boolean, default: false } }
+    responses:
+      '200':
+        description: Paginated notifications.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { type: array, items: { $ref: '#/components/schemas/Notification' } }
+
+/notifications/unread-count:
+  get:
+    tags: [Notifications]
+    summary: Unread notification count
+    responses:
+      '200':
+        description: Count.
+        content:
+          application/json:
+            example: { success: true, data: { unread: 2 } }
+
+/notifications/read-all:
+  post:
+    tags: [Notifications]
+    summary: Mark every notification as read
+    responses:
+      '200': { description: All marked read. }
+
+/notifications/{id}/read:
+  post:
+    tags: [Notifications]
+    summary: Mark one notification as read
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    responses:
+      '200': { description: Marked read. }
+
+/notifications/{id}:
+  delete:
+    tags: [Notifications]
+    summary: Delete a notification
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    responses:
+      '204': { $ref: '#/components/responses/NoContent' }
+
+/notifications/push/public-key:
+  get:
+    tags: [Notifications]
+    summary: VAPID public key
+    security: []
+    description: |
+      Fetch before calling `PushManager.subscribe()` in the service worker.
+      Returns `null` if Web Push is not configured on this deployment.
+    responses:
+      '200':
+        description: The key.
+        content:
+          application/json:
+            example: { success: true, data: { publicKey: BFxxxx } }
+
+/notifications/push/subscribe:
+  post:
+    tags: [Notifications]
+    summary: Register a device for Web Push
+    description: |
+      Push reaches users whose app or browser is closed — something a WebSocket
+      cannot do. Upserted on `endpoint`, so re-subscribing the same device is safe.
+      Dead subscriptions are deactivated automatically when the push service
+      returns 404 or 410.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PushSubscriptionRequest' }
+    responses:
+      '201': { description: Device registered. }
+      '422': { $ref: '#/components/responses/ValidationError' }
+
+/notifications/push/unsubscribe:
+  post:
+    tags: [Notifications]
+    summary: Remove a device
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [endpoint]
+            properties:
+              endpoint: { type: string, format: uri }
+    responses:
+      '204': { $ref: '#/components/responses/NoContent' }

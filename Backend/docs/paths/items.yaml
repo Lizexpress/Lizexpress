@@ -1,0 +1,183 @@
+/items:
+  get:
+    tags: [Items]
+    summary: Browse and search listings
+    security: []
+    description: |
+      Public. Only `active`, paid listings are ever returned, regardless of the
+      query supplied. Text search covers name, description, and swap_for.
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      - { name: q, in: query, description: Free-text search., schema: { type: string } }
+      - { name: category, in: query, schema: { type: string } }
+      - { name: condition, in: query, schema: { type: string, enum: [new, like_new, good, fair, for_parts] } }
+      - { name: country, in: query, schema: { type: string } }
+      - { name: state, in: query, schema: { type: string } }
+      - { name: city, in: query, schema: { type: string } }
+      - { name: minValue, in: query, schema: { type: number } }
+      - { name: maxValue, in: query, schema: { type: number } }
+      - name: sort
+        in: query
+        schema: { type: string, enum: [newest, oldest, price_low, price_high, popular], default: newest }
+    responses:
+      '200':
+        description: Paginated listings.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { type: array, items: { $ref: '#/components/schemas/Item' } }
+  post:
+    tags: [Items]
+    summary: Create a listing
+    description: |
+      Requires a **verified** identity. The listing is created as a `draft` and
+      does not appear publicly until the listing fee is paid — see
+      `POST /payments/initialise`. The response includes the computed fee.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/CreateItemRequest' }
+    responses:
+      '201': { description: Draft created. Includes `listingFee`. }
+      '403':
+        description: Identity not verified.
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ErrorResponse' }
+      '422': { $ref: '#/components/responses/ValidationError' }
+
+/items/categories:
+  get:
+    tags: [Items]
+    summary: Categories with live counts
+    security: []
+    responses:
+      '200': { description: Categories ordered by listing count. }
+
+/items/upload:
+  post:
+    tags: [Items]
+    summary: Upload an item photo
+    description: |
+      `multipart/form-data` with a single `file` field. Max 8MB.
+      Accepts jpeg, png, webp, heic. Returns a public CDN URL to place in the
+      `images` array when creating the listing.
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              file: { type: string, format: binary }
+    responses:
+      '201':
+        description: Uploaded.
+        content:
+          application/json:
+            example:
+              success: true
+              data:
+                path: items/6f1c9e2a/1755100000-a1b2c3.jpg
+                url: https://xyz.supabase.co/storage/v1/object/public/lizexpress/items/...
+      '400': { $ref: '#/components/responses/BadRequest' }
+      '429': { $ref: '#/components/responses/RateLimited' }
+
+/items/me/listings:
+  get:
+    tags: [Items]
+    summary: Your own listings
+    description: Includes drafts and unpaid items, which browse never returns.
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+      - name: status
+        in: query
+        schema: { type: string, enum: [draft, pending_payment, active, swapped, suspended, archived] }
+    responses:
+      '200': { description: Paginated listings. }
+
+/items/me/favorites:
+  get:
+    tags: [Items]
+    summary: Your saved items
+    parameters:
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Limit'
+    responses:
+      '200': { description: Paginated favourites. }
+
+/items/{id}:
+  get:
+    tags: [Items]
+    summary: Listing detail
+    security: []
+    description: |
+      Increments the view counter, except when the owner is viewing their own
+      listing. Non-active listings are only visible to their owner.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    responses:
+      '200':
+        description: The listing, with an `isOwner` flag.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Envelope'
+                - properties:
+                    data: { $ref: '#/components/schemas/Item' }
+      '404': { $ref: '#/components/responses/NotFound' }
+  patch:
+    tags: [Items]
+    summary: Edit a listing
+    description: Owner only. Completed swaps cannot be edited.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/CreateItemRequest' }
+    responses:
+      '200': { description: Updated. }
+      '403': { $ref: '#/components/responses/Forbidden' }
+  delete:
+    tags: [Items]
+    summary: Delete or archive a listing
+    description: |
+      Unpaid drafts are deleted outright. Paid listings are **archived** instead,
+      because the payment record must keep a valid reference.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    responses:
+      '200': { description: Deleted or archived. }
+      '403': { $ref: '#/components/responses/Forbidden' }
+
+/items/{id}/swapped:
+  post:
+    tags: [Items]
+    summary: Mark as swapped
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    responses:
+      '200': { description: Marked swapped. }
+
+/items/{id}/favorite:
+  post:
+    tags: [Items]
+    summary: Toggle favourite
+    description: Idempotent toggle. Returns the resulting state.
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+    responses:
+      '200':
+        description: New favourite state.
+        content:
+          application/json:
+            example: { success: true, data: { favorited: true } }

@@ -1,0 +1,130 @@
+openapi: 3.1.0
+
+info:
+  title: LizExpress API
+  version: 2.0.0
+  summary: Swap marketplace REST API — web and mobile clients share this contract.
+  description: |
+    ## Overview
+
+    LizExpress is a barter marketplace: users list items they no longer need and
+    swap them for things they want. This API backs the web application, the admin
+    console, and the mobile app. There is no separate mobile API — every client
+    uses the endpoints described here.
+
+    ## Authentication
+
+    Send a Supabase access token on every authenticated request:
+
+    ```
+    Authorization: Bearer <accessToken>
+    ```
+
+    Tokens come from `POST /auth/login` or `POST /auth/verify-email`. They are
+    short-lived; use `POST /auth/refresh` with the `refreshToken` to renew one
+    without asking the user to sign in again. Mobile clients should refresh
+    proactively when `expiresAt` is within 60 seconds.
+
+    ## Email verification
+
+    Registration does not create a usable session. The flow is:
+
+    1. `POST /auth/register` — creates the account, emails a 6-digit code via Resend
+    2. `POST /auth/verify-email` — exchanges the code for a session
+    3. `POST /auth/resend-code` — if the code expired (10 minutes) or never arrived
+
+    Codes are single-use, expire after 10 minutes, allow 5 attempts, and are rate
+    limited to one request per 60 seconds per email.
+
+    ## Response envelope
+
+    Success responses are always:
+
+    ```json
+    { "success": true, "data": { }, "meta": { } }
+    ```
+
+    Errors are always:
+
+    ```json
+    { "success": false, "error": { "code": "validation_error", "message": "...", "details": [] } }
+    ```
+
+    `meta` is present on paginated collections and carries `page`, `limit`,
+    `total`, `totalPages`, `hasNext`, `hasPrev`.
+
+    ## Realtime
+
+    Live chat and notifications do not use this HTTP API. Clients open a
+    WebSocket directly to Supabase Realtime and subscribe to:
+
+    | Channel | Events |
+    |---|---|
+    | `chat:{chatId}` | `message:new`, `message:read`, `typing` |
+    | `user:{userId}:notifications` | `notification:new`, `unread:update` |
+    | `admin:feed` | `verification:submitted`, `verification:decided`, `task:created` |
+
+    The API broadcasts into those channels. See `docs/REALTIME.md`.
+
+    ## Rate limits
+
+    | Scope | Window | Limit |
+    |---|---|---|
+    | All `/api` routes | 1 min | 120 |
+    | Auth endpoints | 15 min | 10 |
+    | OTP request/verify | 10 min | 6 |
+    | Uploads | 1 min | 20 |
+
+    Exceeding a limit returns `429` with a `RateLimit-Reset` header.
+  contact:
+    name: LizExpress Engineering
+    email: support@lizexpressltd.com
+    url: https://lizexpressltd.com
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://api.lizexpressltd.com/api/v1
+    description: Production
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+tags:
+  - name: Authentication
+    description: Registration, OTP verification, sessions, and password management.
+  - name: Users
+    description: Profiles, preferences, and dashboard summaries.
+  - name: Items
+    description: Listings — creation, browse, search, favourites.
+  - name: Chats
+    description: Conversations and messages between swappers.
+  - name: Verification
+    description: Identity document submission (applicant side).
+  - name: Payments
+    description: Listing fees via Flutterwave.
+  - name: Notifications
+    description: In-app notifications and Web Push subscriptions.
+  - name: Admin
+    description: Staff-only console. Requires a moderator, admin, or super_admin role.
+  - name: System
+    description: Health, testimonials, feedback.
+
+security:
+  - bearerAuth: []
+
+paths:
+  $ref: './paths/_index.yaml'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase access token issued by `/auth/login` or `/auth/verify-email`.
+  schemas:
+    $ref: './components/schemas.yaml'
+  responses:
+    $ref: './components/responses.yaml'
+  parameters:
+    $ref: './components/parameters.yaml'
