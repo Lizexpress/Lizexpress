@@ -5,7 +5,7 @@ const OWNER = 'owner:users!items_user_id_fkey(id, full_name, avatar_url, is_veri
 const LIST_FIELDS = `
   id, user_id, name, description, category, subcategory, condition, buying_price,
   estimated_cost, swap_for, location, country, state, city, images, status,
-  payment_status, view_count, favorite_count, is_featured, published_at, created_at, updated_at,
+  payment_status, view_count, favorite_count, like_count, comment_count, share_count, chat_count, is_featured, published_at, created_at, updated_at,
   ${OWNER}
 `;
 

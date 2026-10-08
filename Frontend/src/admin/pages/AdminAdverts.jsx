@@ -100,6 +100,15 @@ const AdminAdverts = () => {
     { key: 'place', header: 'Location', render: (row) => <span className="whitespace-nowrap text-ink-soft">{row.lga}, {row.state_code ?? row.state}</span> },
     { key: 'photos', header: 'Photos', render: (row) => <span className="mono">{row.photo_count}</span> },
     { key: 'views', header: 'Views', render: (row) => <span className="mono">{number(row.view_count)}</span> },
+    {
+      key: 'engagement',
+      header: 'Likes / comments',
+      render: (row) => (
+        <span className="mono whitespace-nowrap text-ink-soft">
+          {number(row.like_count ?? 0)} / {number(row.comment_count ?? 0)}
+        </span>
+      ),
+    },
     { key: 'status', header: 'Status', render: (row) => <StatusBadge status={row.status} size="sm" /> },
     { key: 'created', header: 'Created', render: (row) => <span className="text-ink-muted">{timeAgo(row.created_at)}</span> },
     {
@@ -282,7 +291,9 @@ const AdvertReview = ({ id, onClose, onChanged }) => {
               ['Phone', <span key="p" className="mono">{advert.contact_phone}</span>],
               ['Price', price ?? '—'],
               ['Paid', <span key="m" className="mono">{money(Number(advert.amount_paid_kobo ?? 0) / 100)}</span>],
-              ['Views / reveals', <span key="v" className="mono">{number(advert.view_count)} / {number(advert.contact_count)}</span>],
+              ['Views / calls', <span key="v" className="mono">{number(advert.view_count)} / {number(advert.contact_count)}</span>],
+              ['Likes / saves', <span key="l" className="mono">{number(advert.like_count ?? 0)} / {number(advert.save_count ?? 0)}</span>],
+              ['Comments / shares', <span key="c" className="mono">{number(advert.comment_count ?? 0)} / {number(advert.share_count ?? 0)}</span>],
               ['Created', dateLong(advert.created_at)],
               ['Expires', advert.expires_at ? dateLong(advert.expires_at) : '—'],
             ].map(([label, value]) => (

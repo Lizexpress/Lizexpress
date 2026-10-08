@@ -11,6 +11,7 @@ const LIST_FIELDS = `
   price_from, price_to, price_note,
   country, state, state_code, lga, city,
   status, photo_count, published_at, expires_at, view_count, created_at,
+  like_count, save_count, comment_count, share_count, contact_count,
   photos:advert_photos ( id, url, caption, position )
 `;
 
@@ -21,6 +22,7 @@ const DETAIL_FIELDS = `
   country, state, state_code, lga, city, address,
   status, photo_count, amount_due_kobo, amount_paid_kobo,
   published_at, expires_at, view_count, contact_count,
+  like_count, save_count, comment_count, share_count,
   suspended_reason, created_at, updated_at,
   owner:users!adverts_user_id_fkey ( id, full_name, avatar_url, is_verified ),
   photos:advert_photos ( id, url, caption, position, is_paid )
@@ -198,7 +200,7 @@ export const advertRepository = {
   /** Advertiser dashboard figures in one round trip. */
   async statsForUser(userId) {
     const rows = unwrap(
-      await db.from('adverts').select('status, view_count, contact_count').eq('user_id', userId),
+      await db.from('adverts').select('status, view_count, contact_count, like_count, save_count, comment_count').eq('user_id', userId),
       'advert stats for user',
     ) ?? [];
     return {
@@ -207,6 +209,9 @@ export const advertRepository = {
       draftAdverts: rows.filter((row) => ['draft', 'pending_payment'].includes(row.status)).length,
       advertViews: rows.reduce((sum, row) => sum + (row.view_count ?? 0), 0),
       advertContacts: rows.reduce((sum, row) => sum + (row.contact_count ?? 0), 0),
+      advertLikes: rows.reduce((sum, row) => sum + (row.like_count ?? 0), 0),
+      advertSaves: rows.reduce((sum, row) => sum + (row.save_count ?? 0), 0),
+      advertComments: rows.reduce((sum, row) => sum + (row.comment_count ?? 0), 0),
     };
   },
 

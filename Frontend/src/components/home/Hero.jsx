@@ -62,60 +62,26 @@ export const Hero = () => {
     <section
       aria-label="LizExpress highlights"
       aria-roledescription="carousel"
-      className="relative w-full overflow-hidden bg-white"
+      className="relative w-full overflow-hidden bg-canvas"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
       {/*
-        Ambient backdrop for the space either side of the slide on wide screens.
-        A flat white frame boxed in the purple and orange banners with a hard
-        edge; a blurred, scaled copy of the current slide always harmonises,
-        whatever that slide's palette is.
+        Full-bleed: every slide spans the whole width, with no blurred side
+        panels and no faded edges.
 
-        Only rendered from lg upward — below the width cap there is no gap to
-        fill, so a phone never pays for it. It is decorative and already in
-        cache from the slide itself.
+        Height follows the slide's own 16:9 shape, so phones and laptops see the
+        whole banner uncropped. Only on wide screens, where 16:9 would be taller
+        than the window, is the height capped — and the cap never trims more
+        than 18% off the top and bottom. Every banner keeps its headline and
+        product inside the middle 64%, so that only ever removes empty margin.
       */}
-      <div className="absolute inset-0 hidden lg:block" aria-hidden="true">
-        {SLIDES.map((slide, index) => (
-          <img
-            key={`bg-${slide.id}`}
-            src={`/hero/${slide.id}.jpg`}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className={cn(
-              'absolute inset-0 h-full w-full scale-125 object-cover blur-3xl transition-opacity duration-700',
-              index === current ? 'opacity-100' : 'opacity-0',
-            )}
-          />
-        ))}
-      </div>
-      {/*
-        These banners are finished artwork with the headline baked into the
-        image, so they must never be cropped — a crop cuts the message off.
-
-        Height is therefore controlled by capping the WIDTH and centring, not by
-        capping the height. Clamping height while the width kept growing pushed
-        the frame to 2.4:1 at 1440px and 3.2:1 at 1920px, and object-cover then
-        sliced the top and bottom off every slide. Below ~1080px this is
-        full-bleed and the cap does nothing, which is why mobile was already
-        correct.
-      */}
-      <div className="relative z-10 mx-auto w-full max-w-[1280px]">
-        <div
-          className="relative aspect-[16/9] w-full overflow-hidden"
-          style={{
-            // Feathered edges: the slide dissolves into the blurred backdrop
-            // instead of ending on a hard vertical line.
-            maskImage:
-              'linear-gradient(to right, transparent 0, #000 3.5%, #000 96.5%, transparent 100%)',
-            WebkitMaskImage:
-              'linear-gradient(to right, transparent 0, #000 3.5%, #000 96.5%, transparent 100%)',
-          }}
-        >
+      <div
+        className="relative w-full"
+        style={{ height: 'max(min(56.25vw, calc(100svh - 132px)), 36vw)' }}
+      >
         {SLIDES.map((slide, index) => (
           <div
             key={slide.id}
@@ -138,15 +104,33 @@ export const Hero = () => {
                 loading={index === 0 ? 'eager' : 'lazy'}
                 fetchPriority={index === 0 ? 'high' : 'low'}
                 decoding={index === 0 ? 'sync' : 'async'}
-                className="h-full w-full object-contain"
+                className="h-full w-full object-cover object-center"
               />
             </picture>
           </div>
         ))}
 
-        {/* Indicator pill, carried over from v1 — orange marks the active slide. */}
-        <div className="absolute bottom-4 left-1/2 z-20 -translate-x-1/2 sm:bottom-6">
-          <div className="flex gap-2.5 rounded-full bg-black/40 px-3.5 py-2 backdrop-blur-sm sm:gap-3 sm:px-4">
+        {/* Previous / next — desktop only; phones swipe. */}
+        <button
+          type="button"
+          onClick={() => go(current - 1)}
+          aria-label="Previous slide"
+          className="absolute left-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-canvas/80 text-ink shadow-card backdrop-blur transition hover:bg-canvas md:grid"
+        >
+          <span className="icon">chevron_left</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => go(current + 1)}
+          aria-label="Next slide"
+          className="absolute right-4 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-canvas/80 text-ink shadow-card backdrop-blur transition hover:bg-canvas md:grid"
+        >
+          <span className="icon">chevron_right</span>
+        </button>
+
+        {/* Progress pills: the active one stretches, the rest stay small. */}
+        <div className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 sm:bottom-4">
+          <div className="flex items-center gap-1.5 rounded-full bg-ink/35 px-2.5 py-1.5 backdrop-blur-sm">
             {SLIDES.map((slide, index) => (
               <button
                 key={slide.id}
@@ -155,14 +139,13 @@ export const Hero = () => {
                 aria-label={`Go to slide ${index + 1}`}
                 aria-current={index === current}
                 className={cn(
-                  'h-2.5 w-2.5 rounded-full transition-all duration-300 sm:h-3 sm:w-3',
+                  'h-1.5 rounded-full transition-all duration-300 sm:h-2',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80',
-                  index === current ? 'scale-125 bg-orange-500 shadow-lg' : 'bg-gray-300 hover:bg-orange-500/70',
+                  index === current ? 'w-6 bg-accent-500 sm:w-8' : 'w-1.5 bg-white/70 hover:bg-white sm:w-2',
                 )}
               />
             ))}
           </div>
-        </div>
         </div>
       </div>
     </section>

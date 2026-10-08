@@ -1,229 +1,198 @@
-import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, ArrowRight, MapPin, ArrowLeftRight, PackageOpen } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { SmartLink as Link } from '../ui/SmartLink.jsx';
-import { Button } from '../ui/Button.jsx';
+import Icon from '../ui/Icon.jsx';
+import { ItemCard, ItemCardSkeleton } from '../items/ItemCard.jsx';
+import { AdvertCard, AdvertCardSkeleton } from '../adverts/AdvertCard.jsx';
 import { endpoints } from '../../lib/api.js';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { moneyCompact, CONDITION_LABELS } from '../../lib/format.js';
+import { useViewerReactions } from '../../hooks/useEngagement.js';
 import { cn } from '../../lib/cn.js';
 
 /**
- * Live listings, immediately under the hero.
+ * Live listings under the hero: swap items, then business adverts.
  *
- * Deliberately public: the catalogue loads and is browsable with no account.
- * Sign-in is asked for only when someone *acts* — proposing a swap or saving
- * an item. Gating the catalogue would hide the one thing that makes a visitor
- * want to join.
+ * Each is a swipeable row rather than a paged grid. On a phone a row of
+ * cards you can flick through is how every shopping app behaves; on desktop
+ * the arrows scroll by one screenful. Both stay fully public — an account is
+ * asked for only when someone acts.
  */
-const PER_PAGE = 5;
+const useRow = () => {
+  const ref = useRef(null);
+  const [edges, setEdges] = useState({ start: true, end: false });
 
-const CONDITION_TONE = {
-  new: 'bg-success-soft text-success',
-  like_new: 'bg-success-soft text-success',
-  good: 'bg-orange-50 text-orange-800',
-  fair: 'bg-orange-100 text-orange-800',
-  for_parts: 'bg-canvas-sunken text-ink-muted',
+  const update = () => {
+    const el = ref.current;
+    if (!el) return;
+    setEdges({ start: el.scrollLeft < 8, end: el.scrollLeft + el.clientWidth > el.scrollWidth - 8 });
+  };
+
+  const scroll = (direction) => {
+    const el = ref.current;
+    if (el) el.scrollBy({ left: direction * el.clientWidth * 0.9, behavior: 'smooth' });
+  };
+
+  return { ref, edges, update, scroll };
 };
 
-const CardSkeleton = () => (
-  <div className="card overflow-hidden">
-    <div className="skeleton aspect-[4/3] w-full rounded-none" />
-    <div className="space-y-2 p-4">
-      <div className="skeleton h-3 w-16 rounded" />
-      <div className="skeleton h-4 w-4/5 rounded" />
-      <div className="skeleton h-9 w-full rounded-lg" />
-    </div>
-  </div>
-);
+const Row = ({ title, description, to, linkLabel, loading, count, children, skeleton }) => {
+  const row = useRow();
 
-const ItemTile = ({ item }) => {
-  const location = [item.city, item.state].filter(Boolean).join(', ');
+  useEffect(() => {
+    row.update();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [count, loading]);
 
   return (
-    <article className="card-interactive group relative flex flex-col overflow-hidden focus-within:ring-2 focus-within:ring-orange-500 focus-within:ring-offset-2">
-      <div className="relative aspect-[4/3] overflow-hidden bg-canvas-sunken">
-        {item.images?.[0] ? (
-          <img
-            src={item.images[0]}
-            alt={item.name}
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-ink-faint">
-            <PackageOpen size={26} aria-hidden="true" />
+    <section className="py-12 lg:py-16">
+      <div className="container-page">
+        <div className="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-2xl">{title}</h2>
+            <p className="mt-1 text-ink-muted">{description}</p>
           </div>
-        )}
-
-        {item.estimated_cost > 0 && (
-          <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-xs font-semibold text-purple-700 shadow-sm nums">
-            {moneyCompact(item.estimated_cost)}
-          </span>
-        )}
-        {item.condition && (
-          <span
-            className={cn(
-              'absolute right-3 top-3 rounded-full px-2 py-0.5 text-[11px] font-semibold',
-              CONDITION_TONE[item.condition] ?? 'bg-canvas-sunken text-ink-muted',
-            )}
-          >
-            {CONDITION_LABELS[item.condition] ?? item.condition}
-          </span>
-        )}
-      </div>
-
-      <div className="flex flex-1 flex-col p-4">
-        <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.09em] text-ink-faint">{item.category}</p>
-
-        <h3 className="font-display text-[15px] font-semibold leading-snug text-ink">
-          {/* Stretched link: whole card is clickable, one link for screen readers. */}
-          <Link to={`/items/${item.id}`} className="line-clamp-2 after:absolute after:inset-0 focus:outline-none">
-            {item.name}
-          </Link>
-        </h3>
-
-        <div className="mt-3 flex items-start gap-2 rounded-xl bg-orange-50 px-3 py-2.5">
-          <ArrowLeftRight size={15} className="mt-0.5 shrink-0 text-orange-600" aria-hidden="true" />
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.09em] text-orange-800/70">Wants</p>
-            <p className="line-clamp-2 text-[13px] font-medium leading-snug text-ink">{item.swap_for || 'Open to offers'}</p>
+          <div className="flex shrink-0 items-center gap-2">
+            <Link to={to} className="text-sm font-medium text-brand-600 hover:text-brand-700">
+              {linkLabel}
+            </Link>
+            <div className="ml-2 hidden gap-2 md:flex">
+              <ArrowButton icon="chevron_left" label="Scroll back" disabled={row.edges.start} onClick={() => row.scroll(-1)} />
+              <ArrowButton icon="chevron_right" label="Scroll forward" disabled={row.edges.end} onClick={() => row.scroll(1)} />
+            </div>
           </div>
         </div>
 
-        {location && (
-          <p className="mt-3 flex items-center gap-1 text-xs text-ink-muted">
-            <MapPin size={12} aria-hidden="true" />
-            {location}
-          </p>
-        )}
+        <div
+          ref={row.ref}
+          onScroll={row.update}
+          className="scroller -mx-4 scroll-px-4 gap-4 px-4 pb-2 sm:-mx-6 sm:scroll-px-6 sm:gap-6 sm:px-6 lg:mx-0 lg:scroll-px-0 lg:px-0"
+        >
+          {loading
+            ? Array.from({ length: 5 }, (_, index) => (
+                <div key={index} className="w-[44%] sm:w-[30%] lg:w-[calc((100%-96px)/5)]">{skeleton}</div>
+              ))
+            : children}
+        </div>
       </div>
-    </article>
+    </section>
   );
 };
+
+const ArrowButton = ({ icon, label, disabled, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    aria-label={label}
+    className="grid h-9 w-9 place-items-center rounded-full border border-line-strong bg-canvas text-ink-soft transition hover:border-ink-faint hover:text-ink disabled:opacity-40"
+  >
+    <Icon name={icon} />
+  </button>
+);
+
+const SLOT = 'w-[44%] shrink-0 sm:w-[30%] lg:w-[calc((100%-96px)/5)]';
 
 export const ItemsShowcase = () => {
   const { isAuthenticated } = useAuth();
   const [items, setItems] = useState([]);
-  const [page, setPage] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [adverts, setAdverts] = useState([]);
+  const [loading, setLoading] = useState({ items: true, adverts: true });
 
   useEffect(() => {
     let active = true;
     endpoints.items
       .browse({ limit: 15, sort: 'newest' })
       .then(({ data }) => active && setItems(data ?? []))
-      .catch(() => active && setItems([]))
-      .finally(() => active && setIsLoading(false));
+      .catch(() => {})
+      .finally(() => active && setLoading((current) => ({ ...current, items: false })));
+    endpoints.adverts
+      .search({ limit: 10, sort: 'newest' })
+      .then(({ data }) => active && setAdverts(data ?? []))
+      .catch(() => {})
+      .finally(() => active && setLoading((current) => ({ ...current, adverts: false })));
     return () => {
       active = false;
     };
   }, []);
 
-  const totalPages = Math.max(Math.ceil(items.length / PER_PAGE), 1);
-  const visible = items.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
+  const { liked, saved, toggleLike, toggleSave } = useViewerReactions('item', items.map((item) => item.id));
 
   return (
-    <section className="section bg-white">
-      <div className="container-page">
-        <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="eyebrow mb-1.5">Available now</p>
-            <h2 className="text-heading">Items ready to swap</h2>
-            <p className="mt-1.5 text-sm text-ink-muted">
-              Browse freely — an account is only needed once you want to make a swap.
-            </p>
-          </div>
-          <Button as={Link} to="/browse" variant="ghost" size="sm" iconRight={ArrowRight}>
-            View all
-          </Button>
-        </div>
-
-        <div className="relative">
-          <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 lg:grid-cols-5">
-            {isLoading
-              ? Array.from({ length: PER_PAGE }, (_, i) => <CardSkeleton key={i} />)
-              : visible.map((item) => <ItemTile key={item.id} item={item} />)}
-          </div>
-
-          {!isLoading && totalPages > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={() => setPage((p) => (p === 0 ? totalPages - 1 : p - 1))}
-                aria-label="Previous items"
-                className="absolute left-0 top-1/2 hidden h-10 w-10 -translate-x-5 -translate-y-1/2 place-items-center rounded-full border border-line bg-white text-ink-soft shadow-card transition hover:border-purple-200 hover:text-purple-700 lg:grid"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setPage((p) => (p === totalPages - 1 ? 0 : p + 1))}
-                aria-label="More items"
-                className="absolute right-0 top-1/2 hidden h-10 w-10 -translate-y-1/2 translate-x-5 place-items-center rounded-full border border-line bg-white text-ink-soft shadow-card transition hover:border-purple-200 hover:text-purple-700 lg:grid"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </>
-          )}
-        </div>
-
-        {!isLoading && totalPages > 1 && (
-          <div className="mt-7 flex justify-center gap-2">
-            {Array.from({ length: totalPages }, (_, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => setPage(index)}
-                aria-label={`Page ${index + 1}`}
-                aria-current={index === page}
-                className={cn(
-                  'h-2 rounded-full transition-all duration-300',
-                  index === page ? 'w-6 bg-orange-500' : 'w-2 bg-line-strong hover:bg-orange-300',
-                )}
+    <>
+      {(loading.items || items.length > 0) && (
+        <Row
+          title="Fresh swaps"
+          description="Newly listed. Browse freely; you only need an account to make an offer."
+          to="/browse"
+          linkLabel="See all items"
+          loading={loading.items}
+          count={items.length}
+          skeleton={<ItemCardSkeleton />}
+        >
+          {items.map((item, index) => (
+            <div key={item.id} className={SLOT}>
+              <ItemCard
+                item={item}
+                priority={index < 2}
+                liked={liked.has(item.id)}
+                saved={saved.has(item.id)}
+                onToggleLike={toggleLike}
+                onToggleSave={toggleSave}
               />
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+        </Row>
+      )}
 
-        {!isLoading && items.length === 0 && (
-          <div className="card flex flex-col items-center px-6 py-14 text-center">
-            <span className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-purple-50 text-purple-400">
-              <PackageOpen size={24} aria-hidden="true" />
-            </span>
-            <h3 className="font-display text-lg font-semibold text-ink">No listings yet</h3>
-            <p className="mt-1.5 max-w-sm text-sm text-ink-muted">
-              Be the first to list something and start the swapping community.
-            </p>
-            <Button as={Link} to="/list-item" className="mt-5">List an item</Button>
+      {!loading.items && items.length === 0 && (
+        <section className="py-12">
+          <div className="container-page">
+            <div className="panel flex flex-col items-center px-6 py-12 text-center">
+              <Icon name="swap_horiz" size="xl" className="text-ink-faint" />
+              <h2 className="mt-3 text-lg">No listings yet</h2>
+              <p className="mt-1 max-w-sm text-sm text-ink-muted">Be the first to list something and start the swapping community.</p>
+              <Link to="/list-item" className="btn-primary mt-6">List an item</Link>
+            </div>
           </div>
-        )}
+        </section>
+      )}
 
-        {!isAuthenticated && !isLoading && items.length > 0 && (
-          <div className="mt-10 overflow-hidden rounded-2xl bg-purple-700">
-            <div className="flex flex-col items-center gap-5 px-6 py-8 text-center sm:flex-row sm:justify-between sm:text-left lg:px-10">
-              <div>
-                <h3 className="font-display text-xl font-semibold text-white">Found something you want?</h3>
-                <p className="mt-1.5 text-sm text-purple-100/85">
-                  Create a free account to message the owner. Browsing always stays open.
-                </p>
+      {adverts.length > 0 && (
+        <div className="bg-canvas-sunken">
+          <Row
+            title="Businesses near you"
+            description="Vendors and services advertising on LizExpress. See their work, then call them."
+            to="/adverts"
+            linkLabel="See all adverts"
+            loading={loading.adverts}
+            count={adverts.length}
+            skeleton={<AdvertCardSkeleton />}
+          >
+            {adverts.map((advert) => (
+              <div key={advert.id} className={SLOT}>
+                <AdvertCard advert={advert} />
               </div>
-              <div className="flex shrink-0 gap-3">
-                <Button as={Link} to="/register">Create account</Button>
-                <Button
-                  as={Link}
-                  to="/login"
-                  variant="outline"
-                  className="border-white/25 bg-white/10 text-white hover:border-white/40 hover:bg-white/20 hover:text-white"
-                >
-                  Sign in
-                </Button>
+            ))}
+          </Row>
+        </div>
+      )}
+
+      {!isAuthenticated && !loading.items && items.length > 0 && (
+        <section className="py-12 lg:py-16">
+          <div className="container-page">
+            <div className={cn('flex flex-col items-start gap-6 rounded-2xl bg-brand-600 p-6 sm:flex-row sm:items-center sm:justify-between lg:p-8')}>
+              <div>
+                <h2 className="text-xl text-white">Found something you want?</h2>
+                <p className="mt-1 text-brand-100">Create a free account to message owners, like, save and comment.</p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Link to="/register" className="btn-accent">Create account</Link>
+                <Link to="/login" className="btn border border-white/30 text-white hover:bg-white/10">Sign in</Link>
               </div>
             </div>
           </div>
-        )}
-      </div>
-    </section>
+        </section>
+      )}
+    </>
   );
 };
 

@@ -302,3 +302,10 @@
   .text-balance { text-wrap: balance; }
   .nums { font-variant-numeric: tabular-nums; }
 }
+
+/* Like "pop" — answers the tap, then settles. Reduced-motion users get none. */
+@keyframes pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}

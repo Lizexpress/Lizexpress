@@ -22,6 +22,7 @@ import uploadService from './upload.service.js';
 import { notify } from './notification.service.js';
 import { queueTemplate } from './email.service.js';
 import { BadRequest, NotFound, Forbidden, Conflict } from '../lib/errors.js';
+import engagementRepository from '../repositories/engagement.repository.js';
 import { PAYMENT_STATUS, NOTIFICATION_TYPE } from '../config/constants.js';
 import env from '../config/env.js';
 import logger from '../lib/logger.js';
@@ -341,14 +342,14 @@ export const detail = async ({ advertId, viewerId }) => {
   }
 
   // Owners browsing their own advert should not inflate its view count.
-  if (!isOwner) await advertRepository.incrementViews(advertId).catch(() => {});
+  if (!isOwner) await engagementRepository.record('advert', advertId, 'view', viewerId ?? null).catch(() => {});
 
   return advert;
 };
 
 /** Fired when a customer reveals a phone number — the advertiser's ROI signal. */
-export const recordContact = async ({ advertId }) => {
-  await advertRepository.incrementContacts(advertId).catch(() => {});
+export const recordContact = async ({ advertId, viewerId }) => {
+  await engagementRepository.record('advert', advertId, 'contact', viewerId ?? null).catch(() => {});
   return { recorded: true };
 };
 

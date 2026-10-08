@@ -1,17 +1,25 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Heart, MapPin, Eye, MessageCircle, Share2, ChevronLeft, ChevronRight, Flag, ArrowLeftRight } from 'lucide-react';
-import { Button } from '../components/ui/Button.jsx';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { SmartLink as Link } from '../components/ui/SmartLink.jsx';
+import Icon from '../components/ui/Icon.jsx';
+import Image from '../components/ui/Image.jsx';
 import { Avatar } from '../components/ui/Avatar.jsx';
-import { Badge, StatusBadge } from '../components/ui/Badge.jsx';
+import { StatusBadge } from '../components/ui/Badge.jsx';
 import { PageLoader } from '../components/ui/Spinner.jsx';
-import { EmptyState } from '../components/ui/EmptyState.jsx';
+import { EngagementBar } from '../components/engagement/EngagementBar.jsx';
+import { Comments } from '../components/engagement/Comments.jsx';
+import { useEngagement } from '../hooks/useEngagement.js';
 import { endpoints } from '../lib/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
-import { money, CONDITION_LABELS, timeAgo, dateLong } from '../lib/format.js';
+import { money, number, CONDITION_LABELS, timeAgo, dateLong } from '../lib/format.js';
 import { cn } from '../lib/cn.js';
 
+/**
+ * Swap item detail — the same structure as an advert page, so the two halves
+ * of the marketplace feel like one product: photos and the conversation on the
+ * left, the decision on the right.
+ */
 const ItemDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -19,21 +27,26 @@ const ItemDetail = () => {
   const toast = useToast();
 
   const [item, setItem] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [activeImage, setActiveImage] = useState(0);
-  const [isFavorited, setIsFavorited] = useState(false);
+  const [state, setState] = useState('loading');
+  const [active, setActive] = useState(0);
   const [isStarting, setIsStarting] = useState(false);
+  const stripRef = useRef(null);
+  const engagement = useEngagement('item', id);
 
   useEffect(() => {
-    let active = true;
-    setIsLoading(true);
+    let alive = true;
+    setState('loading');
+    setActive(0);
     endpoints.items
       .detail(id)
-      .then((data) => active && setItem(data))
-      .catch(() => active && setItem(null))
-      .finally(() => active && setIsLoading(false));
+      .then((data) => {
+        if (!alive) return;
+        setItem(data);
+        setState('ready');
+      })
+      .catch(() => alive && setState('missing'));
     return () => {
-      active = false;
+      alive = false;
     };
   }, [id]);
 
@@ -47,7 +60,6 @@ const ItemDetail = () => {
       navigate('/id-verification');
       return;
     }
-
     setIsStarting(true);
     try {
       const chat = await endpoints.chats.start(id);
@@ -59,209 +71,250 @@ const ItemDetail = () => {
     }
   };
 
-  const share = async () => {
-    const url = window.location.href;
-    if (navigator.share) {
-      await navigator.share({ title: item.name, url }).catch(() => {});
-      return;
-    }
-    await navigator.clipboard.writeText(url);
-    toast.success('Link copied.');
-  };
+  if (state === 'loading') return <PageLoader label="Loading item" />;
 
-  if (isLoading) return <PageLoader label="Loading listing" />;
-
-  if (!item) {
+  if (state === 'missing') {
     return (
-      <div className="container-page py-20">
-        <EmptyState
-          title="This listing is no longer available"
-          description="It may have been swapped or removed by its owner."
-          action={<Button as={Link} to="/browse">Browse other items</Button>}
-        />
+      <div className="container-page flex min-h-[60vh] flex-col items-center justify-center text-center">
+        <Icon name="swap_horiz" size="xl" className="text-ink-faint" />
+        <h1 className="mt-4 text-2xl">This item is no longer available</h1>
+        <p className="mt-2 text-ink-muted">It may have been swapped or removed by its owner.</p>
+        <Link to="/browse" className="btn-primary mt-6">Browse other items</Link>
       </div>
     );
   }
 
   const images = item.images ?? [];
-  const location = [item.city, item.state, item.country].filter(Boolean).join(', ');
+  const place = [item.city, item.state].filter(Boolean).join(', ');
   const isOwner = item.user_id === user?.id;
+  const value = Number(item.estimated_cost) > 0 ? money(item.estimated_cost) : null;
+  const condition = CONDITION_LABELS[item.condition] ?? item.condition;
+  const goToComments = () => document.getElementById('comments')?.scrollIntoView({ behavior: 'smooth' });
+
+  const goTo = (index) => {
+    setActive(index);
+    const strip = stripRef.current;
+    if (strip) strip.scrollTo({ left: strip.clientWidth * index, behavior: 'smooth' });
+  };
+
+  const onStripScroll = () => {
+    const strip = stripRef.current;
+    if (!strip) return;
+    const index = Math.round(strip.scrollLeft / strip.clientWidth);
+    if (index !== active) setActive(index);
+  };
+
+  const description = (
+    <>
+      <h2 className="text-lg">About this item</h2>
+      <p className="mt-3 max-w-[68ch] whitespace-pre-line leading-relaxed text-ink-soft">
+        {item.description || 'No description yet.'}
+      </p>
+      <dl className="mt-6 divide-y divide-line border-y border-line text-sm">
+        {[
+          ['Category', item.category],
+          ['Condition', condition],
+          ['Location', place],
+          ['Listed', item.published_at && timeAgo(item.published_at)],
+        ]
+          .filter(([, entry]) => entry)
+          .map(([label, entry]) => (
+            <div key={label} className="grid grid-cols-[120px_1fr] gap-4 py-3">
+              <dt className="text-ink-muted">{label}</dt>
+              <dd className="text-ink">{entry}</dd>
+            </div>
+          ))}
+      </dl>
+      <div className="mt-12">
+        <Comments type="item" id={item.id} ownerId={item.user_id} onCountChange={engagement.setCommentCount} count={engagement.counts.comments} />
+      </div>
+    </>
+  );
 
   return (
     <div className="container-page py-6 lg:py-10">
-      <Button as={Link} to="/browse" variant="ghost" size="sm" icon={ChevronLeft} className="mb-4 -ml-2">
-        Back to browse
-      </Button>
+      <nav className="mb-6 text-sm text-ink-muted" aria-label="Breadcrumb">
+        <Link to="/browse" className="inline-flex items-center gap-1 hover:text-ink">
+          <Icon name="arrow_back" size="sm" />
+          Swap items
+        </Link>
+        {item.category && (
+          <>
+            <span className="mx-2 text-ink-faint">/</span>
+            <Link to={`/browse?category=${encodeURIComponent(item.category)}`} className="hover:text-ink">{item.category}</Link>
+          </>
+        )}
+      </nav>
 
-      <div className="grid gap-8 lg:grid-cols-[1.15fr_1fr] lg:gap-12">
-        <div>
-          <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-line bg-canvas-sunken">
-            {images.length ? (
-              <img
-                src={images[activeImage]}
-                alt={`${item.name} — photo ${activeImage + 1} of ${images.length}`}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-ink-faint">
-                <ArrowLeftRight size={40} />
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
+        <section aria-label="Photos">
+          {images.length > 0 ? (
+            <div className="relative">
+              <div ref={stripRef} onScroll={onStripScroll} className="scroller gap-0 rounded-xl">
+                {images.map((src, index) => (
+                  <div key={src} className="w-full">
+                    <Image
+                      src={src}
+                      alt={`${item.name}, photo ${index + 1} of ${images.length}`}
+                      width={1200}
+                      priority={index === 0}
+                      className="rounded-xl"
+                    />
+                  </div>
+                ))}
               </div>
-            )}
-
-            {images.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setActiveImage((index) => (index - 1 + images.length) % images.length)}
-                  className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-ink shadow-card transition hover:bg-white"
-                  aria-label="Previous photo"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveImage((index) => (index + 1) % images.length)}
-                  className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-ink shadow-card transition hover:bg-white"
-                  aria-label="Next photo"
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </>
-            )}
-          </div>
+              {images.length > 1 && (
+                <>
+                  <GalleryArrow side="left" onClick={() => goTo((active - 1 + images.length) % images.length)} />
+                  <GalleryArrow side="right" onClick={() => goTo((active + 1) % images.length)} />
+                  <span className="mono absolute bottom-3 right-3 rounded-full bg-ink/60 px-2 py-0.5 text-xs text-white">
+                    {active + 1}/{images.length}
+                  </span>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="media grid place-items-center rounded-xl">
+              <Icon name="swap_horiz" size="xl" className="text-ink-faint" />
+            </div>
+          )}
 
           {images.length > 1 && (
-            <div className="mt-3 flex gap-2 overflow-x-auto scrollbar-hide">
-              {images.map((image, index) => (
+            <div className="scroller mt-3 gap-2">
+              {images.map((src, index) => (
                 <button
-                  key={image}
+                  key={src}
                   type="button"
-                  onClick={() => setActiveImage(index)}
-                  aria-label={`View photo ${index + 1}`}
-                  aria-current={index === activeImage}
+                  onClick={() => goTo(index)}
+                  aria-label={`Show photo ${index + 1}`}
+                  aria-current={index === active}
                   className={cn(
-                    'h-16 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition',
-                    index === activeImage ? 'border-purple-500' : 'border-line hover:border-line-strong',
+                    'w-16 overflow-hidden rounded-md border-2 transition sm:w-20',
+                    index === active ? 'border-brand-600' : 'border-transparent opacity-70 hover:opacity-100',
                   )}
                 >
-                  <img src={image} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  <Image src={src} alt="" width={160} ratio="media-square" className="rounded-none" />
                 </button>
               ))}
             </div>
           )}
 
-          <section className="mt-8">
-            <h2 className="font-display text-lg font-semibold">About this item</h2>
-            <p className="mt-2.5 whitespace-pre-line text-[15px] leading-relaxed text-ink-soft">{item.description}</p>
-          </section>
-        </div>
+          <EngagementBar engagement={engagement} title={item.name} onComment={goToComments} className="-ml-2 mt-2" />
 
-        <div>
+          <div className="mt-8 hidden lg:block">{description}</div>
+        </section>
+
+        <aside className="lg:sticky lg:top-[calc(var(--header-h)+24px)] lg:self-start">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone="neutral">{item.category}</Badge>
-            <Badge tone="muted">{CONDITION_LABELS[item.condition] ?? item.condition}</Badge>
-            {item.status !== 'active' && <StatusBadge status={item.status} />}
+            {condition && <span className="badge-neutral">{condition}</span>}
+            {item.status !== 'active' && <StatusBadge status={item.status} size="sm" />}
           </div>
 
-          <h1 className="mt-3 text-title font-bold text-balance">{item.name}</h1>
+          <h1 className="mt-3 text-2xl leading-tight text-ink sm:text-3xl">{item.name}</h1>
 
-          <p className="mt-3 font-display text-2xl font-semibold text-purple-700">
-            {money(item.estimated_cost)}
-            <span className="ml-2 text-sm font-normal text-ink-muted">estimated value</span>
-          </p>
-
-          {/* The swap pair again, at full size — it is the offer, so it leads. */}
-          <div className="mt-6 overflow-hidden rounded-2xl border border-orange-200 bg-canvas-warm">
-            <div className="flex items-center gap-2 border-b border-orange-200/70 px-5 py-3">
-              <ArrowLeftRight size={17} className="text-orange-600" />
-              <p className="text-2xs font-bold uppercase tracking-[0.11em] text-orange-800/80">Wants in return</p>
-            </div>
-            <p className="px-5 py-4 text-[15px] font-medium leading-relaxed text-ink">
-              {item.swap_for || 'Open to any reasonable offer'}
+          {value && (
+            <p className="mt-2 text-ink-muted">
+              <span className="mono text-xl font-medium text-ink">{value}</span> estimated value
             </p>
+          )}
+
+          {/* What they want is the offer itself, so it leads the decision. */}
+          <div className="mt-6 rounded-xl bg-accent-50 p-4">
+            <p className="flex items-center gap-1 text-sm font-medium text-accent-700">
+              <Icon name="swap_horiz" size="sm" />
+              Wants in return
+            </p>
+            <p className="mt-1 text-lg leading-snug text-ink">{item.swap_for || 'Open to any fair offer'}</p>
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-ink-muted">
-            {location && (
-              <span className="flex items-center gap-1.5">
-                <MapPin size={14} aria-hidden="true" />
-                {location}
+          <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-muted">
+            {place && (
+              <span className="inline-flex items-center gap-1">
+                <Icon name="location_on" size="sm" className="text-ink-faint" />
+                {place}
               </span>
             )}
-            <span className="flex items-center gap-1.5">
-              <Eye size={14} aria-hidden="true" />
-              {item.view_count} views
+            <span className="inline-flex items-center gap-1">
+              <Icon name="visibility" size="sm" className="text-ink-faint" />
+              <span className="mono">{number(engagement.counts.views || item.view_count)}</span> views
             </span>
-            {item.published_at && <span>Listed {timeAgo(item.published_at)}</span>}
-          </div>
-
-          {!isOwner && (
-            <div className="mt-6 flex flex-wrap gap-2">
-              <Button size="lg" icon={MessageCircle} onClick={startChat} isLoading={isStarting} className="flex-1">
-                Propose a swap
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => {
-                  if (!isAuthenticated) {
-                    toast.info('Sign in to save items.');
-                    return;
-                  }
-                  setIsFavorited((value) => !value);
-                  endpoints.items.favorite(item.id).catch(() => {});
-                }}
-                aria-pressed={isFavorited}
-                aria-label={isFavorited ? 'Remove from saved' : 'Save item'}
-                className="px-4"
-              >
-                <Heart size={18} fill={isFavorited ? 'currentColor' : 'none'} className={cn(isFavorited && 'text-danger')} />
-              </Button>
-              <Button size="lg" variant="outline" onClick={share} aria-label="Share listing" className="px-4">
-                <Share2 size={18} />
-              </Button>
-            </div>
-          )}
-
-          {isOwner && (
-            <div className="mt-6 flex gap-2">
-              <Button as={Link} to="/dashboard/listings" size="lg" variant="secondary" className="flex-1">
-                Manage this listing
-              </Button>
-            </div>
-          )}
-
-          <div className="mt-8 rounded-2xl border border-line bg-white p-5">
-            <p className="mb-3 text-2xs font-bold uppercase tracking-[0.11em] text-ink-faint">Listed by</p>
-            <Link to={`/users/${item.owner?.id}`} className="flex items-center gap-3">
-              <Avatar src={item.owner?.avatar_url} name={item.owner?.full_name} size="lg" verified={item.owner?.is_verified} />
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-ink">{item.owner?.full_name ?? 'LizExpress member'}</p>
-                <p className="text-sm text-ink-muted">
-                  {item.owner?.is_verified ? 'Identity verified' : 'Not yet verified'}
-                  {item.owner?.created_at && ` · Joined ${dateLong(item.owner.created_at)}`}
-                </p>
-              </div>
-            </Link>
-          </div>
-
-          <p className="mt-5 rounded-xl bg-canvas-sunken px-4 py-3 text-xs leading-relaxed text-ink-muted">
-            Keep conversations and arrangements on LizExpress. Meet in a public place, and inspect an item before you
-            hand yours over. We cannot help with deals arranged off-platform.
           </p>
 
-          <button
-            type="button"
-            onClick={() => toast.info('Thanks — our team will review this listing.')}
-            className="mt-3 flex items-center gap-1.5 text-xs font-medium text-ink-faint transition hover:text-danger"
-          >
-            <Flag size={12} />
-            Report this listing
-          </button>
-        </div>
+          <div className="mt-6 grid gap-2">
+            {isOwner ? (
+              <>
+                <div className="panel grid grid-cols-3">
+                  {[
+                    ['Views', engagement.counts.views || item.view_count],
+                    ['Chats', engagement.counts.contacts],
+                    ['Likes', engagement.counts.likes],
+                    ['Saves', engagement.counts.saves],
+                    ['Comments', engagement.counts.comments],
+                    ['Shares', engagement.counts.shares],
+                  ].map(([label, count], index) => (
+                    <div key={label} className={cn('p-3', index % 3 && 'border-l border-line', index > 2 && 'border-t border-line')}>
+                      <p className="mono text-lg font-medium text-ink">{number(count ?? 0)}</p>
+                      <p className="text-xs text-ink-muted">{label}</p>
+                    </div>
+                  ))}
+                </div>
+                <Link to="/dashboard/listings" className="btn-secondary">Manage this listing</Link>
+              </>
+            ) : (
+              <button type="button" className="btn-primary" onClick={startChat} disabled={isStarting}>
+                <Icon name="chat_bubble" size="sm" />
+                {isStarting ? 'Opening chat…' : 'Propose a swap'}
+              </button>
+            )}
+          </div>
+
+          <Link to={`/users/${item.owner?.id}`} className="mt-6 flex items-center gap-3 border-t border-line pt-6">
+            <Avatar src={item.owner?.avatar_url} name={item.owner?.full_name} verified={item.owner?.is_verified} />
+            <div className="min-w-0 text-sm">
+              <p className="truncate font-medium text-ink">{item.owner?.full_name ?? 'LizExpress member'}</p>
+              <p className="text-ink-muted">
+                {item.owner?.is_verified ? 'Identity verified' : 'Identity not verified'}
+                {item.owner?.created_at && `, joined ${dateLong(item.owner.created_at)}`}
+              </p>
+            </div>
+            <Icon name="chevron_right" size="sm" className="ml-auto text-ink-faint" />
+          </Link>
+
+          {!isOwner && (
+            <>
+              <p className="mt-6 text-sm leading-relaxed text-ink-muted">
+                Keep arrangements on LizExpress. Meet in a public place and inspect an item before you hand yours over.
+              </p>
+              <button
+                type="button"
+                onClick={() => toast.info('Thanks. Our team will review this listing.')}
+                className="mt-3 inline-flex items-center gap-1 text-sm text-ink-faint transition hover:text-danger"
+              >
+                <Icon name="flag" size="sm" />
+                Report this listing
+              </button>
+            </>
+          )}
+        </aside>
+
+        <div className="lg:hidden">{description}</div>
       </div>
     </div>
   );
 };
+
+const GalleryArrow = ({ side, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={side === 'left' ? 'Previous photo' : 'Next photo'}
+    className={cn(
+      'absolute top-1/2 hidden h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-canvas/90 text-ink shadow-card backdrop-blur transition hover:bg-canvas sm:grid',
+      side === 'left' ? 'left-3' : 'right-3',
+    )}
+  >
+    <Icon name={side === 'left' ? 'chevron_left' : 'chevron_right'} />
+  </button>
+);
 
 export default ItemDetail;

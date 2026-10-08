@@ -19,7 +19,7 @@ const {
   dashboard, myListings, favorites, payments, settings, verification,
   listItem, paymentCallback, chats, chatThread, notifications,
   adminLogin, adminLayout, adminDashboard, adminVerifications, adminUsers, adminItems,
-  adminPayments, adminTasks, adminFeedback, adminAudit, adminSettings, adminAdverts,
+  adminPayments, adminTasks, adminFeedback, adminAudit, adminSettings, adminAdverts, adminEngagement,
   adverts, advertDetail, myAdverts, advertEditor, onboarding,
 } = loaders;
 
@@ -29,6 +29,7 @@ const MyAdverts = lazy(myAdverts);
 const AdvertEditor = lazy(advertEditor);
 const Onboarding = lazy(onboarding);
 const AdminAdverts = lazy(adminAdverts);
+const AdminEngagement = lazy(adminEngagement);
 
 const Home = lazy(home);
 const Browse = lazy(browse);
@@ -111,6 +112,7 @@ const adminRoutes = (
         <Route path="users" element={<AdminUsers />} />
         <Route path="items" element={<AdminItems />} />
         <Route path="adverts" element={<AdminAdverts />} />
+        <Route path="engagement" element={<AdminEngagement />} />
         <Route path="payments" element={<AdminPayments />} />
         <Route path="tasks" element={<AdminTasks />} />
         <Route path="feedback" element={<AdminFeedback />} />

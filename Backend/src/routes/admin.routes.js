@@ -3,6 +3,8 @@ import * as controller from '../controllers/admin.controller.js';
 import * as verification from '../controllers/verification.controller.js';
 import * as adverts from '../controllers/advert.controller.js';
 import { advertSchemas } from '../validators/advert.validators.js';
+import * as engagement from '../controllers/engagement.controller.js';
+import { engagementSchemas } from '../validators/engagement.validators.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { adminSchemas, verificationSchemas, itemSchemas, pagination } from '../validators/index.js';
@@ -53,6 +55,15 @@ router.delete('/users/:id', requireAdmin(USER_ROLE.SUPER_ADMIN), validate({ para
 router.get('/items', validate({ query: itemSchemas.browse }), controller.listItems);
 router.patch('/items/:id/status', validate({ params: adminSchemas.idParam, body: adminSchemas.itemStatus }), controller.setItemStatus);
 router.get('/payments', validate({ query: pagination }), controller.listPayments);
+
+/* Engagement */
+router.get('/engagement', validate({ query: engagementSchemas.overview }), engagement.adminOverview);
+router.get('/engagement/comments', validate({ query: engagementSchemas.adminComments }), engagement.adminComments);
+router.patch(
+  '/engagement/comments/:commentId',
+  validate({ params: engagementSchemas.commentId, body: engagementSchemas.hide }),
+  engagement.adminHideComment,
+);
 
 /* Advertisements */
 router.get('/adverts/stats', adverts.adminStats);

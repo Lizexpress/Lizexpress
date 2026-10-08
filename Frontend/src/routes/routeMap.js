@@ -53,6 +53,7 @@ export const loaders = {
   adminAudit: () => import('../admin/pages/AdminAudit.jsx'),
   adminSettings: () => import('../admin/pages/AdminSettings.jsx'),
   adminAdverts: () => import('../admin/pages/AdminAdverts.jsx'),
+  adminEngagement: () => import('../admin/pages/AdminEngagement.jsx'),
 };
 
 /** Path pattern → loader. Order matters: first match wins. */
@@ -98,6 +99,7 @@ const ROUTE_PATTERNS = [
   ['/admin/audit-log', loaders.adminAudit],
   ['/admin/settings', loaders.adminSettings],
   ['/admin/adverts', loaders.adminAdverts],
+  ['/admin/engagement', loaders.adminEngagement],
   ['/admin', loaders.adminDashboard],
   ['/', loaders.home],
 ];

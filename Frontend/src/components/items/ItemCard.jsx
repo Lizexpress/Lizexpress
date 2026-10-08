@@ -1,124 +1,147 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { SmartLink as Link } from '../ui/SmartLink.jsx';
-import { Heart, MapPin, Eye, ArrowLeftRight } from 'lucide-react';
-import { Avatar } from '../ui/Avatar.jsx';
-import { Badge, StatusBadge } from '../ui/Badge.jsx';
-import { moneyCompact, CONDITION_LABELS, timeAgo } from '../../lib/format.js';
+import Icon from '../ui/Icon.jsx';
+import Image from '../ui/Image.jsx';
+import { StatusBadge } from '../ui/Badge.jsx';
+import { money, number, CONDITION_LABELS } from '../../lib/format.js';
 import { cn } from '../../lib/cn.js';
 
 /**
- * The listing card.
+ * Swap item card.
  *
- * The design decision that matters here: a swap listing is not a product
- * listing. A price tag alone tells you nothing — what you actually need to know
- * is "what do they have, and what do they want for it". So the card is built
- * around that pair, with the wanted item given equal visual weight to the
- * offered one and the exchange glyph between them. Everything else on the card
- * is deliberately quiet so this reads first.
+ * Photo first and large, because people decide on the photo. Under it, the two
+ * things a swapper needs, in order: what it is, and what the owner wants for
+ * it. Value and place sit on one quiet line. Category and condition are not
+ * shouted in capitals — condition rides on the photo as a small tag, the way
+ * every modern marketplace does it.
+ *
+ * The heart is a LIKE (a public signal the owner sees); saving to your list is
+ * the bookmark. A value of zero is not printed — "₦0" read as "free".
  */
-const ItemCardComponent = ({ item, onToggleFavorite, isFavorited = false, showStatus = false, className }) => {
-  const [cover] = item.images ?? [];
-  const location = [item.city, item.state].filter(Boolean).join(', ');
+const ItemCardComponent = ({
+  item,
+  liked = false,
+  saved = false,
+  onToggleLike,
+  onToggleSave,
+  showStatus = false,
+  priority = false,
+  className,
+}) => {
+  const [likeCount, setLikeCount] = useState(item.like_count ?? 0);
+  const cover = item.images?.[0];
+  const place = item.city || item.state;
+  const condition = CONDITION_LABELS[item.condition] ?? item.condition;
+  const value = Number(item.estimated_cost) > 0 ? money(item.estimated_cost) : null;
+
+  const like = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setLikeCount((count) => Math.max(count + (liked ? -1 : 1), 0));
+    const result = await onToggleLike?.(item.id);
+    if (result?.counts) setLikeCount(result.counts.likes);
+    else if (result === null) setLikeCount(item.like_count ?? 0);
+  };
+
+  const save = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onToggleSave?.(item.id);
+  };
 
   return (
-    <article
-      className={cn(
-        'group relative flex flex-col overflow-hidden card',
-        'transition-all duration-300 ease-swap hover:-translate-y-1 hover:border-purple-200 hover:shadow-lift',
-        'focus-within:ring-2 focus-within:ring-orange-500 focus-within:ring-offset-2',
-        className,
-      )}
-    >
-      <div className="relative aspect-[4/3] overflow-hidden bg-canvas-sunken">
-        {cover ? (
-          <img
-            src={cover}
-            alt={item.name}
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover transition-transform duration-500 ease-swap group-hover:scale-[1.04]"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-ink-faint">
-            <ArrowLeftRight size={30} />
-          </div>
-        )}
+    <article className={cn('group relative min-w-0', className)}>
+      <div className="relative">
+        <Image
+          src={cover}
+          alt={item.name}
+          width={520}
+          ratio="media-square"
+          priority={priority}
+          className="rounded-xl"
+          imgClassName="transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+          fallback={
+            <div className="absolute inset-0 grid place-items-center text-ink-faint">
+              <Icon name="swap_horiz" size="xl" />
+            </div>
+          }
+        />
 
-        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-          <Badge tone="accent" size="sm">{moneyCompact(item.estimated_cost)}</Badge>
-          {showStatus && <StatusBadge status={item.status} size="sm" />}
+        <div className="pointer-events-none absolute inset-x-2 top-2 flex items-start justify-between gap-2">
+          <div className="flex flex-wrap gap-1">
+            {condition && <span className="badge bg-canvas/90 text-ink backdrop-blur">{condition}</span>}
+            {showStatus && <StatusBadge status={item.status} size="sm" />}
+          </div>
         </div>
 
-        {onToggleFavorite && (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.preventDefault();
-              onToggleFavorite(item.id);
-            }}
-            aria-pressed={isFavorited}
-            aria-label={isFavorited ? `Remove ${item.name} from saved` : `Save ${item.name}`}
-            className={cn(
-              'absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur transition-all',
-              'focus-visible:ring-2 focus-visible:ring-orange-500',
-              isFavorited ? 'bg-white text-danger' : 'bg-purple-900/35 text-white hover:bg-white hover:text-danger',
+        {(onToggleLike || onToggleSave) && (
+          <div className="absolute bottom-2 right-2 z-10 flex gap-1">
+            {onToggleSave && (
+              <IconButton icon="bookmark" active={saved} activeClass="text-brand-600" label={saved ? 'Remove from saved' : 'Save'} onClick={save} />
             )}
-          >
-            <Heart size={16} fill={isFavorited ? 'currentColor' : 'none'} />
-          </button>
+            {onToggleLike && (
+              <IconButton icon="favorite" active={liked} activeClass="text-danger" label={liked ? 'Unlike' : 'Like'} onClick={like} />
+            )}
+          </div>
         )}
       </div>
 
-      <div className="flex flex-1 flex-col p-4">
-        <p className="mb-1 text-2xs font-semibold uppercase tracking-[0.09em] text-ink-faint">
-          {item.category}
-          {item.condition && <> · {CONDITION_LABELS[item.condition] ?? item.condition}</>}
-        </p>
-
-        <h3 className="font-display text-[15px] font-semibold leading-snug text-ink">
-          {/* Stretched link: the whole card is clickable, but only one link exists for screen readers. */}
-          <Link to={`/items/${item.id}`} className="line-clamp-2 after:absolute after:inset-0 focus:outline-none">
+      <div className="mt-3">
+        <h3 className="truncate text-base font-semibold text-ink">
+          {/* Stretched link: the whole card opens the item, one link for screen readers. */}
+          <Link to={`/items/${item.id}`} className="after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none">
             {item.name}
           </Link>
         </h3>
 
-        {/* ── The swap pair ── */}
-        <div className="mt-3 flex items-center gap-2.5 rounded-xl bg-canvas-warm px-3 py-2.5">
-          <ArrowLeftRight size={17} className="text-orange-600" />
-          <div className="min-w-0">
-            <p className="text-2xs font-semibold uppercase tracking-wider text-orange-800/70">Wants</p>
-            <p className="line-clamp-2 text-[13px] font-medium leading-snug text-ink">{item.swap_for || 'Open to offers'}</p>
-          </div>
-        </div>
-
-        <div className="mt-auto flex items-center gap-2 pt-3.5">
-          <Avatar src={item.owner?.avatar_url} name={item.owner?.full_name} size="xs" verified={item.owner?.is_verified} />
-          <span className="min-w-0 flex-1 truncate text-xs font-medium text-ink-soft">
-            {item.owner?.full_name ?? 'LizExpress member'}
+        <p className="mt-1 flex min-w-0 items-center gap-1 text-sm text-ink-soft">
+          <Icon name="swap_horiz" size="sm" className="shrink-0 text-accent-600" />
+          <span className="truncate">
+            <span className="text-ink-muted">Wants </span>
+            {item.swap_for || 'any fair offer'}
           </span>
-          {location && (
-            <span className="flex shrink-0 items-center gap-0.5 text-2xs text-ink-muted">
-              <MapPin size={11} aria-hidden="true" />
-              {location}
+        </p>
+
+        <p className="mt-2 flex min-w-0 items-center gap-2 text-sm text-ink-muted">
+          {value && <span className="mono shrink-0 text-ink">{value}</span>}
+          {value && place && <span aria-hidden="true" className="text-line-strong">|</span>}
+          {place && <span className="truncate">{place}</span>}
+          {likeCount > 0 && (
+            <span className="ml-auto inline-flex shrink-0 items-center gap-0.5 text-ink-faint">
+              <Icon name="favorite" size="sm" filled />
+              <span className="mono text-xs">{number(likeCount)}</span>
             </span>
           )}
-        </div>
-
-        {(item.view_count > 0 || item.published_at) && (
-          <div className="mt-2 flex items-center gap-3 border-t border-line pt-2 text-2xs text-ink-faint">
-            {item.view_count > 0 && (
-              <span className="flex items-center gap-1">
-                <Eye size={11} aria-hidden="true" />
-                {item.view_count}
-              </span>
-            )}
-            {item.published_at && <span>{timeAgo(item.published_at)}</span>}
-          </div>
-        )}
+        </p>
       </div>
     </article>
   );
 };
+
+const IconButton = ({ icon, active, activeClass, label, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={active}
+    aria-label={label}
+    className={cn(
+      'grid h-9 w-9 place-items-center rounded-full bg-canvas/90 shadow-xs backdrop-blur transition hover:bg-canvas active:scale-90',
+      // One colour per state; listing both let the grey win over red.
+      active ? activeClass : 'text-ink-soft hover:text-ink',
+    )}
+  >
+    <Icon name={icon} filled={active} size="sm" />
+  </button>
+);
+
+export const ItemCardSkeleton = () => (
+  <div aria-hidden="true">
+    <div className="media media-square rounded-xl"><div className="media-skeleton" /></div>
+    <div className="skeleton mt-3 h-4 w-3/4" />
+    <div className="skeleton mt-2 h-3 w-1/2" />
+    <div className="skeleton mt-2 h-3 w-2/5" />
+  </div>
+);
 
 /** Memoised: browse grids re-render on every filter keystroke otherwise. */
 export const ItemCard = memo(ItemCardComponent);

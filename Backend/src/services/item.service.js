@@ -1,3 +1,4 @@
+import engagementRepository from '../repositories/engagement.repository.js';
 import itemRepository from '../repositories/item.repository.js';
 import { favoriteRepository } from '../repositories/admin.repository.js';
 import { calculateFee } from './payment.service.js';
@@ -49,7 +50,7 @@ export const detail = async ({ id, viewerId }) => {
   }
 
   // Owners viewing their own listing should not inflate their view count.
-  if (!isOwner) await itemRepository.incrementViews(id).catch(() => {});
+  if (!isOwner) await engagementRepository.record('item', id, 'view', viewerId ?? null).catch(() => {});
 
   return { ...item, isOwner: Boolean(isOwner) };
 };

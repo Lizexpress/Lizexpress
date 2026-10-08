@@ -6,6 +6,7 @@ import { AdvertCard, AdvertCardSkeleton } from '../../components/adverts/AdvertC
 import { useStates, useAdvertLocations } from '../../components/adverts/useLocations.js';
 import { endpoints } from '../../lib/api.js';
 import { useDebounce } from '../../hooks/useDebounce.js';
+import { useViewerReactions } from '../../hooks/useEngagement.js';
 import { ADVERT_CATEGORIES } from '../../lib/adverts.js';
 import { number } from '../../lib/format.js';
 import { cn } from '../../lib/cn.js';
@@ -90,12 +91,22 @@ const BrowseAdverts = () => {
     return () => controller.abort();
   }, [filters, page, attempt]);
 
+  const reactions = useViewerReactions('advert', items.map((advert) => advert.id));
   const popularPlaces = locations.slice(0, 8);
   const lgaSuggestions = locations.find((entry) => entry.code === stateCode)?.lgas ?? [];
   const hasFilters = Boolean(stateCode || lga || category || urlQuery);
 
   return (
     <div className="container-page py-8 lg:py-12">
+      <nav className="mb-6 inline-flex rounded-full border border-line bg-canvas-sunken p-1" aria-label="Marketplace">
+        <Link to="/browse" className="rounded-full px-4 py-1 text-sm text-ink-muted transition-colors hover:text-ink">
+          Swap items
+        </Link>
+        <span className="rounded-full bg-canvas px-4 py-1 text-sm font-medium text-ink shadow-xs" aria-current="page">
+          Business adverts
+        </span>
+      </nav>
+
       {/* ── Headline: the place is the control ── */}
       <header className="max-w-3xl">
         <h1 className="text-title text-ink">
@@ -189,7 +200,7 @@ const BrowseAdverts = () => {
       </div>
 
       {/* ── Categories ── */}
-      <div className="scroller -mx-4 mt-4 px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-label="Category">
+      <div className="scroller -mx-4 mt-4 scroll-px-4 px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-label="Category">
         <CategoryChip active={!category} onClick={() => update({ category: '' })}>All</CategoryChip>
         {ADVERT_CATEGORIES.map((entry) => (
           <CategoryChip
@@ -258,7 +269,15 @@ const BrowseAdverts = () => {
           <>
             <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
               {items.map((advert, index) => (
-                <AdvertCard key={advert.id} advert={advert} priority={index < 4} />
+                <AdvertCard
+                  key={advert.id}
+                  advert={advert}
+                  priority={index < 4}
+                  liked={reactions.liked.has(advert.id)}
+                  saved={reactions.saved.has(advert.id)}
+                  onToggleLike={reactions.toggleLike}
+                  onToggleSave={reactions.toggleSave}
+                />
               ))}
             </div>
 

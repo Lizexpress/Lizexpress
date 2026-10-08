@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import Icon from '../ui/Icon.jsx';
+import { cn } from '../../lib/cn.js';
 
 /** Category list is shared with the footer so the two cannot disagree. */
 export const CATEGORIES = [
@@ -9,71 +10,76 @@ export const CATEGORIES = [
 ];
 
 /**
- * The orange search band that sits directly under the hero, as in v1.
- * Kept as a full-bleed brand strip because it is the visual seam between the
- * carousel and the catalogue.
+ * The orange search band under the hero.
+ *
+ * One search box with a two-way switch: swap items or business adverts. The
+ * category dropdown only appears for items, because adverts are searched by
+ * place, not by item category.
  */
 export const SearchStrip = () => {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
-  const [category, setCategory] = useState('all');
+  const [mode, setMode] = useState('items');
+  const [category, setCategory] = useState('');
 
   const onSubmit = (event) => {
     event.preventDefault();
     const params = new URLSearchParams();
     if (query.trim()) params.set('q', query.trim());
-    if (category !== 'all') params.set('category', category);
-    navigate(`/browse?${params.toString()}`);
+    if (mode === 'items' && category) params.set('category', category);
+    navigate(`${mode === 'items' ? '/browse' : '/adverts'}${params.size ? `?${params}` : ''}`);
   };
 
   return (
-    <section className="bg-orange-500">
-      <div className="container-page py-3.5">
-        <form
-          onSubmit={onSubmit}
-          role="search"
-          className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
-        >
-          <p className="text-center text-sm font-medium text-white lg:text-left">
-            Swap and advertise your goods and services.
-          </p>
+    <section className="bg-accent-500">
+      <div className="container-page py-4">
+        <form onSubmit={onSubmit} role="search" className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="inline-flex shrink-0 self-start rounded-full bg-ink/10 p-1 lg:self-auto" role="group" aria-label="Search in">
+            {[
+              ['items', 'Swap items'],
+              ['adverts', 'Businesses'],
+            ].map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setMode(value)}
+                aria-pressed={mode === value}
+                className={cn(
+                  'rounded-full px-4 py-1 text-sm transition-colors',
+                  mode === value ? 'bg-canvas font-medium text-ink shadow-xs' : 'text-ink/80 hover:text-ink',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-          <div className="flex w-full flex-col gap-2.5 sm:flex-row lg:w-auto lg:flex-[0_1_36rem]">
-            <div className="relative flex-1">
-              <Search
-                size={16}
-                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-faint"
-                aria-hidden="true"
-              />
+          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
+            <div className="relative min-w-0 flex-1">
+              <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint" />
               <input
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search items or what people want in return"
-                aria-label="Search items"
-                className="h-11 w-full rounded-xl border border-transparent bg-white pl-10 pr-3 text-sm text-ink shadow-sm placeholder:text-ink-faint focus:outline-none focus:ring-2 focus:ring-purple-700"
+                placeholder={mode === 'items' ? 'What are you looking for, or want to swap?' : 'Caterer, tailor, phone repair…'}
+                aria-label="Search"
+                className="field border-transparent pl-12 shadow-xs"
               />
             </div>
-
-            <label className="sr-only" htmlFor="home-category">Category</label>
-            <select
-              id="home-category"
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
-              className="h-11 cursor-pointer rounded-xl border border-transparent bg-purple-600 px-3.5 text-sm font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-white sm:w-44"
-            >
-              <option value="all">All categories</option>
-              {CATEGORIES.map((entry) => (
-                <option key={entry} value={entry}>{entry}</option>
-              ))}
-            </select>
-
-            <button
-              type="submit"
-              className="h-11 shrink-0 rounded-xl bg-purple-700 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-purple-800 focus:outline-none focus:ring-2 focus:ring-white"
-            >
-              Search
-            </button>
+            {mode === 'items' && (
+              <select
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+                aria-label="Category"
+                className="field border-transparent shadow-xs sm:w-48"
+              >
+                <option value="">All categories</option>
+                {CATEGORIES.map((entry) => (
+                  <option key={entry} value={entry}>{entry}</option>
+                ))}
+              </select>
+            )}
+            <button type="submit" className="btn-primary shrink-0 px-6">Search</button>
           </div>
         </form>
       </div>

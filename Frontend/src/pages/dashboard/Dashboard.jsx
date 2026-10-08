@@ -22,6 +22,7 @@ const Dashboard = () => {
   const { user, isVerified, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [summary, setSummary] = useState(null);
+  const [reach, setReach] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,6 +31,8 @@ const Dashboard = () => {
       .then(setSummary)
       .catch(() => setSummary({}))
       .finally(() => setLoading(false));
+    // People who engaged with this account's posts in the last 30 days.
+    endpoints.engagement.mine(30).then(setReach).catch(() => {});
   }, []);
 
   const types = user?.account_types?.length ? user.account_types : ['swapper'];
@@ -132,12 +135,28 @@ const Dashboard = () => {
           <StatStrip
             loading={loading}
             stats={[
-              { label: 'Live adverts', value: summary?.activeAdverts, to: '/dashboard/adverts' },
               { label: 'Views', value: summary?.advertViews, to: '/dashboard/adverts' },
+              { label: 'People engaged, 30 days', value: reach?.summary?.people, to: '/dashboard/adverts', highlight: reach?.summary?.people > 0 },
               { label: 'Phone reveals', value: summary?.advertContacts, to: '/dashboard/adverts' },
-              { label: 'Not yet live', value: summary?.draftAdverts, to: '/dashboard/adverts', highlight: summary?.draftAdverts > 0 },
+              { label: 'Likes', value: summary?.advertLikes, to: '/dashboard/adverts' },
             ]}
           />
+          {!loading && (summary?.advertComments > 0 || summary?.advertSaves > 0) && (
+            <p className="mt-3 flex flex-wrap gap-x-4 text-sm text-ink-soft">
+              <span className="inline-flex items-center gap-1">
+                <Icon name="chat_bubble" size="sm" className="text-ink-faint" />
+                <span className="mono">{number(summary.advertComments ?? 0)}</span> comments
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Icon name="bookmark" size="sm" className="text-ink-faint" />
+                <span className="mono">{number(summary.advertSaves ?? 0)}</span> saves
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Icon name="campaign" size="sm" className="text-ink-faint" />
+                <span className="mono">{number(summary.activeAdverts ?? 0)}</span> live adverts
+              </span>
+            </p>
+          )}
           {!loading && summary?.draftAdverts > 0 && (
             <p className="mt-3 flex items-start gap-2 text-sm text-ink-soft">
               <Icon name="info" size="sm" className="mt-0.5 text-accent-600" />

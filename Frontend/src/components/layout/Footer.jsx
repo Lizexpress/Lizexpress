@@ -55,7 +55,8 @@ export const Footer = () => {
             <h3 className="mb-4 font-display text-base font-semibold text-white">Quick Links</h3>
             <ul className="space-y-2 text-sm">
               <li><Link to="/" className="transition-colors hover:text-orange-500">Home</Link></li>
-              <li><Link to="/browse" className="transition-colors hover:text-orange-500">Browse</Link></li>
+              <li><Link to="/browse" className="transition-colors hover:text-orange-500">Swap items</Link></li>
+              <li><Link to="/adverts" className="transition-colors hover:text-orange-500">Business adverts</Link></li>
               {isAuthenticated && (
                 <li><Link to="/dashboard" className="transition-colors hover:text-orange-500">Dashboard</Link></li>
               )}

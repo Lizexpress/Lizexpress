@@ -139,13 +139,21 @@ const MyAdverts = () => {
                   </div>
                   <p className="mt-0.5 truncate text-sm text-ink-muted">{placeLine(advert)}</p>
                   <p className="mt-1 flex flex-wrap gap-x-4 text-sm text-ink-muted">
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex items-center gap-1" title="Views">
                       <Icon name="visibility" size="sm" className="text-ink-faint" />
                       <span className="mono text-ink-soft">{number(advert.view_count)}</span>
                     </span>
-                    <span className="inline-flex items-center gap-1">
-                      <Icon name="photo_library" size="sm" className="text-ink-faint" />
-                      <span className="mono text-ink-soft">{advert.photo_count}</span>
+                    <span className="inline-flex items-center gap-1" title="Likes">
+                      <Icon name="favorite" size="sm" className="text-ink-faint" />
+                      <span className="mono text-ink-soft">{number(advert.like_count ?? 0)}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1" title="Comments">
+                      <Icon name="chat_bubble" size="sm" className="text-ink-faint" />
+                      <span className="mono text-ink-soft">{number(advert.comment_count ?? 0)}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1" title="Phone numbers revealed">
+                      <Icon name="call" size="sm" className="text-ink-faint" />
+                      <span className="mono text-ink-soft">{number(advert.contact_count ?? 0)}</span>
                     </span>
                     {advert.status === 'active' && advert.expires_at && (
                       <span>Until {dateLong(advert.expires_at)}</span>

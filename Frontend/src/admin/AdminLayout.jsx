@@ -2,7 +2,7 @@ import { Suspense, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ShieldCheck, Users, Package, CreditCard,
-  ListTodo, MessageSquare, ScrollText, Settings, Menu, ExternalLink, LogOut, Megaphone } from 'lucide-react';
+  ListTodo, MessageSquare, ScrollText, Settings, Menu, ExternalLink, LogOut, Megaphone, HeartPulse } from 'lucide-react';
 import { Logo } from '../components/layout/Logo.jsx';
 import { Avatar } from '../components/ui/Avatar.jsx';
 import { PageLoader } from '../components/ui/Spinner.jsx';
@@ -16,6 +16,7 @@ const NAV = [
   { to: '/admin/users', label: 'Users', icon: Users },
   { to: '/admin/items', label: 'Listings', icon: Package },
   { to: '/admin/adverts', label: 'Adverts', icon: Megaphone },
+  { to: '/admin/engagement', label: 'Engagement', icon: HeartPulse },
   { to: '/admin/payments', label: 'Payments', icon: CreditCard },
   { to: '/admin/tasks', label: 'Tasks', icon: ListTodo },
   { to: '/admin/feedback', label: 'Feedback', icon: MessageSquare },

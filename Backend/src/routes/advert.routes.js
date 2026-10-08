@@ -27,6 +27,7 @@ router.get('/:id', optionalAuth, validate({ params: advertSchemas.idParam }), co
 
 router.post(
   '/:id/contact',
+  optionalAuth,
   validate({ params: advertSchemas.idParam }),
   controller.recordContact,
 );

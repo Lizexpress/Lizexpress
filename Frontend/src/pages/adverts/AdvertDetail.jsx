@@ -7,6 +7,9 @@ import { Avatar } from '../../components/ui/Avatar.jsx';
 import { StatusBadge } from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { AdvertCard } from '../../components/adverts/AdvertCard.jsx';
+import { EngagementBar } from '../../components/engagement/EngagementBar.jsx';
+import { Comments } from '../../components/engagement/Comments.jsx';
+import { useEngagement } from '../../hooks/useEngagement.js';
 import { endpoints } from '../../lib/api.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { money, number, dateLong } from '../../lib/format.js';
@@ -30,6 +33,8 @@ const AdvertDetail = () => {
   const [revealed, setRevealed] = useState(false);
   const [nearby, setNearby] = useState([]);
   const stripRef = useRef(null);
+  const engagement = useEngagement('advert', id);
+  const goToComments = () => document.getElementById('comments')?.scrollIntoView({ behavior: 'smooth' });
 
   useEffect(() => {
     setState('loading');
@@ -173,9 +178,14 @@ const AdvertDetail = () => {
             </div>
           )}
 
-          {/* Description sits under the photos on desktop, after contact on mobile. */}
-          <div className="mt-10 hidden lg:block">
+          <EngagementBar engagement={engagement} title={advert.title} onComment={goToComments} className="-ml-2 mt-2" />
+
+          {/* Description and comments sit under the photos on desktop, after contact on mobile. */}
+          <div className="mt-8 hidden lg:block">
             <Description advert={advert} />
+            <div className="mt-12">
+              <Comments type="advert" id={advert.id} ownerId={advert.user_id} onCountChange={engagement.setCommentCount} count={engagement.counts.comments} />
+            </div>
           </div>
         </section>
 
@@ -201,15 +211,20 @@ const AdvertDetail = () => {
           <div className="mt-6 grid gap-2">
             {isOwner ? (
               <>
-                <div className="panel grid grid-cols-2 divide-x divide-line">
-                  <div className="p-4">
-                    <p className="mono text-xl font-medium text-ink">{number(advert.view_count)}</p>
-                    <p className="text-sm text-ink-muted">Views</p>
-                  </div>
-                  <div className="p-4">
-                    <p className="mono text-xl font-medium text-ink">{number(advert.contact_count)}</p>
-                    <p className="text-sm text-ink-muted">Contacts</p>
-                  </div>
+                <div className="panel grid grid-cols-3">
+                  {[
+                    ['Views', engagement.counts.views || advert.view_count],
+                    ['Calls', engagement.counts.contacts || advert.contact_count],
+                    ['Likes', engagement.counts.likes],
+                    ['Saves', engagement.counts.saves],
+                    ['Comments', engagement.counts.comments],
+                    ['Shares', engagement.counts.shares],
+                  ].map(([label, value], index) => (
+                    <div key={label} className={`p-3 ${index % 3 ? 'border-l border-line' : ''} ${index > 2 ? 'border-t border-line' : ''}`}>
+                      <p className="mono text-lg font-medium text-ink">{number(value ?? 0)}</p>
+                      <p className="text-xs text-ink-muted">{label}</p>
+                    </div>
+                  ))}
                 </div>
                 <Link to={`/dashboard/adverts/${advert.id}`} className="btn-secondary">
                   <Icon name="edit" size="sm" />
@@ -265,6 +280,9 @@ const AdvertDetail = () => {
 
         <div className="lg:hidden">
           <Description advert={advert} />
+          <div className="mt-12">
+            <Comments type="advert" id={advert.id} ownerId={advert.user_id} onCountChange={engagement.setCommentCount} count={engagement.counts.comments} />
+          </div>
         </div>
       </div>
 

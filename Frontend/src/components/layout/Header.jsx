@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, X, User, LogOut, Settings, LayoutDashboard, Package, Heart, Shield, Megaphone } from 'lucide-react';
+import { Menu, X, User, LogOut, Settings, Package, Heart, Shield, Megaphone } from 'lucide-react';
 import { SmartLink as Link, SmartNavLink as NavLink } from '../ui/SmartLink.jsx';
 import { Logo } from './Logo.jsx';
 import { NotificationMenu } from './NotificationMenu.jsx';
@@ -9,11 +9,17 @@ import { useNotifications } from '../../hooks/useNotifications.js';
 import { cn } from '../../lib/cn.js';
 
 /**
- * Purple header, carried over from v1. Nav is uppercase, the account control is
+ * Purple header, carried over from v1. Nav is sentence case, the account control is
  * an orange pill, and hover states go orange — all as they were.
  */
+// Sentence case reads calmer than the old ALL-CAPS nav. The focus outline is
+// white on purple; the global brand-purple ring was invisible against the bar.
 const linkClass = ({ isActive }) =>
-  cn('text-base transition-colors', isActive ? 'text-orange-500' : 'text-white hover:text-orange-500');
+  cn(
+    'rounded-full px-3 py-1 text-[15px] font-medium transition-colors',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0',
+    isActive ? 'bg-white/10 text-white' : 'text-white/80 hover:text-white',
+  );
 
 export const Header = () => {
   const { user, isAuthenticated, isStaff, signOut } = useAuth();
@@ -52,14 +58,14 @@ export const Header = () => {
       <div className="container-page flex items-center justify-between gap-3">
         <Logo variant="light" />
 
-        <nav className="hidden items-center gap-6 md:flex" aria-label="Main">
-          <NavLink to="/" end className={linkClass}>HOME</NavLink>
-          <NavLink to="/browse" className={linkClass}>BROWSE</NavLink>
-          <NavLink to="/adverts" className={linkClass}>ADVERTS</NavLink>
+        <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
+          <NavLink to="/" end className={linkClass}>Home</NavLink>
+          <NavLink to="/browse" className={linkClass}>Swap</NavLink>
+          <NavLink to="/adverts" className={linkClass}>Adverts</NavLink>
           {isAuthenticated && (
             <>
-              <NavLink to="/dashboard" className={linkClass}>DASHBOARD</NavLink>
-              <NavLink to="/list-item" className={linkClass}>LIST ITEM</NavLink>
+              <NavLink to="/dashboard" className={linkClass}>Dashboard</NavLink>
+              <NavLink to="/list-item" className={linkClass}>List an item</NavLink>
             </>
           )}
 
@@ -119,9 +125,9 @@ export const Header = () => {
           ) : (
             <Link
               to="/login"
-              className="rounded-full bg-orange-500 px-6 py-2 text-base font-bold text-white transition-colors hover:bg-orange-600"
+              className="ml-2 rounded-full bg-accent-500 px-4 py-2 text-[15px] font-medium text-ink transition-colors hover:bg-accent-400"
             >
-              SIGN IN
+              Sign in
             </Link>
           )}
         </nav>
@@ -143,16 +149,16 @@ export const Header = () => {
       {mobileOpen && (
         <div className="border-t border-white/10 bg-purple-600 md:hidden">
           <nav className="container-page grid gap-1 py-3" aria-label="Mobile">
-            <NavLink to="/" end onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">HOME</NavLink>
-            <NavLink to="/browse" onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">BROWSE</NavLink>
-            <NavLink to="/adverts" onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">ADVERTS</NavLink>
+            <NavLink to="/" end onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">Home</NavLink>
+            <NavLink to="/browse" onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">Swap</NavLink>
+            <NavLink to="/adverts" onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">Adverts</NavLink>
             {isAuthenticated ? (
               <>
-                <NavLink to="/dashboard" onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">DASHBOARD</NavLink>
-                <NavLink to="/list-item" onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">LIST ITEM</NavLink>
-                <NavLink to="/chats" onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">MESSAGES</NavLink>
-                <NavLink to="/settings" onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">SETTINGS</NavLink>
-                <button type="button" onClick={onSignOut} className="py-2.5 text-left text-white hover:text-orange-500">SIGN OUT</button>
+                <NavLink to="/dashboard" onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">Dashboard</NavLink>
+                <NavLink to="/list-item" onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">List an item</NavLink>
+                <NavLink to="/chats" onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">Messages</NavLink>
+                <NavLink to="/settings" onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">Settings</NavLink>
+                <button type="button" onClick={onSignOut} className="py-2.5 text-left text-white hover:text-orange-500">Sign out</button>
               </>
             ) : (
               <Link
@@ -160,7 +166,7 @@ export const Header = () => {
                 onClick={() => setMobileOpen(false)}
                 className="mt-2 rounded-full bg-orange-500 px-6 py-2.5 text-center font-bold text-white"
               >
-                SIGN IN
+                Sign in
               </Link>
             )}
           </nav>

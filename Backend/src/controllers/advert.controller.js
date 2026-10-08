@@ -19,7 +19,7 @@ export const detail = asyncHandler(async (req, res) => {
 });
 
 export const recordContact = asyncHandler(async (req, res) => {
-  ok(res, await advertService.recordContact({ advertId: req.params.id }));
+  ok(res, await advertService.recordContact({ advertId: req.params.id, viewerId: req.auth?.id }));
 });
 
 export const locations = asyncHandler(async (_req, res) => {
