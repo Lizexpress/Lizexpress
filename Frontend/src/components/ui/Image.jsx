@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cn } from '../../lib/cn';
 
 /**
@@ -19,6 +19,22 @@ import { cn } from '../../lib/cn';
  *     delivered at card size is the actual payload problem; `width` asks the
  *     CDN for the size being displayed instead.
  */
+/**
+ * Supabase's on-the-fly resizing (/render/image/) is a paid-plan feature. On
+ * the free plan those URLs fail, which is exactly how every listed photo turned
+ * into a placeholder. So resizing is OFF unless VITE_SUPABASE_IMAGE_TRANSFORMS
+ * is "true", and even when it is on, a failed resized URL falls back to the
+ * original photo before giving up.
+ */
+const TRANSFORMS_ON = import.meta.env.VITE_SUPABASE_IMAGE_TRANSFORMS === 'true';
+
+const resized = (src, width) => {
+  if (!TRANSFORMS_ON || !src || !width) return src;
+  if (!src.includes('/storage/v1/object/public/')) return src;
+  const rendered = src.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+  return `${rendered}${rendered.includes('?') ? '&' : '?'}width=${width}&quality=78&resize=cover`;
+};
+
 export default function Image({
   src,
   alt = '',
@@ -30,16 +46,26 @@ export default function Image({
   fallback = null,
   ...rest
 }) {
+  const optimised = resized(src, width);
+  const [current, setCurrent] = useState(optimised);
   const [loaded, setLoaded] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState(!src);
 
-  const optimised = (() => {
-    if (!src || !width) return src;
-    // Supabase storage supports on-the-fly resizing via /render/image/.
-    if (!src.includes('/storage/v1/object/public/')) return src;
-    const rendered = src.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
-    return `${rendered}?width=${width}&quality=78&resize=cover`;
-  })();
+  // A new photo (gallery change, recycled card) starts over.
+  useEffect(() => {
+    setCurrent(optimised);
+    setLoaded(false);
+    setFailed(!src);
+  }, [optimised, src]);
+
+  const onError = () => {
+    // First failure on a resized URL: try the original photo.
+    if (current !== src && src) {
+      setCurrent(src);
+      return;
+    }
+    setFailed(true);
+  };
 
   return (
     <div className={cn('media', ratio !== 'media' && ratio, className)} {...rest}>
@@ -53,14 +79,14 @@ export default function Image({
           ))
         : (
           <img
-            src={optimised}
+            src={current}
             alt={alt}
             data-loaded={loaded ? 'true' : 'false'}
             loading={priority ? 'eager' : 'lazy'}
             decoding="async"
             fetchPriority={priority ? 'high' : 'auto'}
             onLoad={() => setLoaded(true)}
-            onError={() => setFailed(true)}
+            onError={onError}
             className={imgClassName}
           />
         )}
