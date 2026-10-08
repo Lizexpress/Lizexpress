@@ -149,7 +149,7 @@ const Browse = () => {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search items, or what people want in return"
+            placeholder="Search items or what people want"
             aria-label="Search items"
             className="field pl-12"
           />
@@ -161,7 +161,7 @@ const Browse = () => {
             onChange={(event) => setFilter('condition', event.target.value)}
             aria-label="Condition"
           >
-            <option value="">Any condition</option>
+            <option value="">Condition</option>
             {Object.entries(CONDITION_LABELS).map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
             ))}
@@ -172,7 +172,7 @@ const Browse = () => {
             onChange={(event) => setFilter('state', event.target.value)}
             aria-label="State"
           >
-            <option value="">All states</option>
+            <option value="">State</option>
             {states.map((state) => (
               <option key={state.code} value={state.name}>{state.name}</option>
             ))}

@@ -8,7 +8,7 @@ import { ArrowLeftRight } from 'lucide-react';
  * exactly where drop-off happens. It collapses away entirely on mobile.
  */
 export const AuthShell = ({ eyebrow, title, description, children, footer }) => (
-  <div className="grid min-h-dvh lg:grid-cols-[1fr_minmax(0,44%)]">
+  <div className="grid min-h-app lg:grid-cols-[1fr_minmax(0,44%)]">
     <div className="flex flex-col px-5 py-8 sm:px-10 lg:px-16">
       <Logo variant="dark" />
 

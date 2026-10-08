@@ -91,7 +91,7 @@ export const AdminLayout = () => {
   );
 
   return (
-    <div className="flex min-h-dvh bg-canvas-sunken">
+    <div className="flex min-h-app bg-canvas-sunken">
       <aside className="fixed inset-y-0 left-0 hidden w-60 bg-purple-800 lg:block">{sidebar}</aside>
 
       {open && (

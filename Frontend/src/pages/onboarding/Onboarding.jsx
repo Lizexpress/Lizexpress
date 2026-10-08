@@ -80,7 +80,7 @@ const Onboarding = () => {
   const firstName = user?.full_name?.split(' ')[0];
 
   return (
-    <div className="min-h-dvh bg-canvas-sunken">
+    <div className="min-h-app bg-canvas-sunken">
       <div className="container-page max-w-2xl py-8">
         <Logo variant="dark" />
 

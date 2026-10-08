@@ -187,7 +187,7 @@ const ChatThread = () => {
   const person = chat.sender_id === user?.id ? chat.receiver : chat.sender;
 
   return (
-    <div className="flex h-[calc(100dvh-5rem)] flex-col">
+    <div className="flex h-chat flex-col">
       <header className="flex items-center gap-3 border-b border-line bg-white px-4 py-3">
         <Link to="/chats" className="-ml-1 rounded-lg p-1.5 text-ink-soft hover:bg-canvas-sunken" aria-label="Back to messages">
           <ChevronLeft size={20} />

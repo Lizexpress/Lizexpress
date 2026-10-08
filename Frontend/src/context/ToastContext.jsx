@@ -25,7 +25,8 @@ export const ToastProvider = ({ children }) => {
 
   const push = useCallback(
     (message, { variant = 'info', duration = 4500 } = {}) => {
-      const id = crypto.randomUUID();
+      // randomUUID only exists from iOS 15.4; fall back so toasts never crash.
+      const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       setToasts((current) => [...current, { id, message, variant }]);
       if (duration) setTimeout(() => dismiss(id), duration);
       return id;

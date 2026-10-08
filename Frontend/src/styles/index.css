@@ -309,3 +309,67 @@
   45% { transform: scale(1.28); }
   100% { transform: scale(1); }
 }
+
+/* ============================================================================
+   MOBILE HARDENING — every Android and iPhone, not just recent ones.
+   ========================================================================== */
+
+/* 1. Nothing may push the page sideways. `clip` (unlike `hidden`) does not
+      create a scroll container, so the sticky header keeps working. Older
+      browsers without `clip` get `hidden` on the wrapper instead.            */
+html, body { max-width: 100%; }
+body { overflow-x: clip; }
+@supports not (overflow: clip) {
+  body { overflow-x: hidden; }
+}
+
+/* 2. Long unbroken words in user text (links, phone numbers, "aaaaaa…") wrap
+      instead of stretching the layout.                                       */
+p, h1, h2, h3, h4, li, dd, dt, blockquote, figcaption, td, label, a, span {
+  overflow-wrap: break-word;
+}
+
+/* 3. iOS Safari zooms the page when a field under 16px is focused. This beats
+      every component class, so no input on the site can trigger it.          */
+@media (max-width: 767px) {
+  input, select, textarea { font-size: 16px !important; }
+}
+
+/* 4. Screen-height units. `dvh`/`svh` only exist from iOS 15.4 / Chrome 108;
+      older phones ignore the whole rule. Each class states a `vh` fallback
+      first, then the modern unit overrides it where supported.               */
+.min-h-app { min-height: 100vh; min-height: 100dvh; }
+.h-chat { height: calc(100vh - 5rem); height: calc(100dvh - 5rem); }
+.hero-frame { height: max(min(56.25vw, calc(100vh - 132px)), 36vw); }
+@supports (height: 100svh) {
+  .hero-frame { height: max(min(56.25vw, calc(100svh - 132px)), 36vw); }
+}
+
+/* 5. Photo frames on iOS 14 and older Android, which lack aspect-ratio:
+      the classic padding trick reserves the same box.                        */
+@supports not (aspect-ratio: 1 / 1) {
+  .media::before { content: ''; display: block; padding-top: 75%; }
+  .media-square::before { padding-top: 100%; }
+  .media-wide::before { padding-top: 56.25%; }
+  .media-portrait::before { padding-top: 133.33%; }
+}
+
+/* 6. Notched iPhones in landscape: keep content clear of the notch. */
+@supports (padding: max(0px)) {
+  .container-page {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+  }
+  @media (min-width: 640px) {
+    .container-page {
+      padding-left: max(24px, env(safe-area-inset-left));
+      padding-right: max(24px, env(safe-area-inset-right));
+    }
+  }
+  @media (min-width: 1024px) {
+    .container-page {
+      padding-left: max(32px, env(safe-area-inset-left));
+      padding-right: max(32px, env(safe-area-inset-right));
+    }
+  }
+}

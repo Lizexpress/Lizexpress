@@ -180,7 +180,7 @@ const BrowseAdverts = () => {
           <input
             type="search"
             className="field pl-12"
-            placeholder="What are you looking for? e.g. small chops, tailor, phone repair"
+            placeholder="Small chops, tailor, phone repair…"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             aria-label="Search adverts"

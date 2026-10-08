@@ -78,7 +78,7 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col bg-purple-800">
+    <div className="flex min-h-app flex-col bg-purple-800">
       <div className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-md">
           <div className="mb-6 flex flex-col items-center text-center">

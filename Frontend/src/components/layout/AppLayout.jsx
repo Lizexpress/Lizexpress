@@ -24,7 +24,7 @@ export const AppLayout = () => {
   const isChatThread = /^\/chats\/[^/]+$/.test(pathname);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-canvas">
+    <div className="flex min-h-app flex-col bg-canvas">
       <ScrollToTop />
       <Header />
 

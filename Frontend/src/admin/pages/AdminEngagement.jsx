@@ -130,8 +130,8 @@ const AdminEngagement = () => {
       </section>
 
       {/* ── Leaderboards ── */}
-      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <section className="rounded-xl border border-line bg-canvas">
+      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <section className="min-w-0 rounded-xl border border-line bg-canvas">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 sm:px-6">
             <h2 className="text-base">Most engaging</h2>
             <div className="inline-flex rounded-full bg-canvas-sunken p-1" role="tablist">

@@ -78,10 +78,7 @@ export const Hero = () => {
         than 18% off the top and bottom. Every banner keeps its headline and
         product inside the middle 64%, so that only ever removes empty margin.
       */}
-      <div
-        className="relative w-full"
-        style={{ height: 'max(min(56.25vw, calc(100svh - 132px)), 36vw)' }}
-      >
+      <div className="hero-frame relative w-full">
         {SLIDES.map((slide, index) => (
           <div
             key={slide.id}

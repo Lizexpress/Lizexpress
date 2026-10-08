@@ -102,17 +102,23 @@ const ItemCardComponent = ({
           </span>
         </p>
 
-        <p className="mt-2 flex min-w-0 items-center gap-2 text-sm text-ink-muted">
-          {value && <span className="mono shrink-0 text-ink">{value}</span>}
-          {value && place && <span aria-hidden="true" className="text-line-strong">|</span>}
-          {place && <span className="truncate">{place}</span>}
+        {/* Value and like count share a line; the place gets its own, so on the
+            smallest phones neither is squeezed down to "Ja…". */}
+        <div className="mt-2 flex min-h-5 min-w-0 items-center gap-2 text-sm">
+          {value && <span className="mono truncate text-ink">{value}</span>}
           {likeCount > 0 && (
             <span className="ml-auto inline-flex shrink-0 items-center gap-0.5 text-ink-faint">
               <Icon name="favorite" size="sm" filled />
               <span className="mono text-xs">{number(likeCount)}</span>
             </span>
           )}
-        </p>
+        </div>
+        {place && (
+          <p className="mt-0.5 flex min-w-0 items-center gap-1 text-sm text-ink-muted">
+            <Icon name="location_on" size="sm" className="shrink-0 text-ink-faint" />
+            <span className="truncate">{place}</span>
+          </p>
+        )}
       </div>
     </article>
   );

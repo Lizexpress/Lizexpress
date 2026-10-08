@@ -27,7 +27,9 @@ export const SearchStrip = () => {
     const params = new URLSearchParams();
     if (query.trim()) params.set('q', query.trim());
     if (mode === 'items' && category) params.set('category', category);
-    navigate(`${mode === 'items' ? '/browse' : '/adverts'}${params.size ? `?${params}` : ''}`);
+    // params.size is missing before iOS 17, so test the string instead.
+    const qs = params.toString();
+    navigate(`${mode === 'items' ? '/browse' : '/adverts'}${qs ? `?${qs}` : ''}`);
   };
 
   return (
@@ -61,7 +63,7 @@ export const SearchStrip = () => {
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder={mode === 'items' ? 'What are you looking for, or want to swap?' : 'Caterer, tailor, phone repair…'}
+                placeholder={mode === 'items' ? 'What are you looking for?' : 'Caterer, tailor, repairs…'}
                 aria-label="Search"
                 className="field border-transparent pl-12 shadow-xs"
               />
