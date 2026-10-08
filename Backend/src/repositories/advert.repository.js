@@ -12,7 +12,7 @@ const LIST_FIELDS = `
   country, state, state_code, lga, city,
   status, photo_count, published_at, expires_at, view_count, created_at,
   like_count, save_count, comment_count, share_count, contact_count,
-  photos:advert_photos ( id, url, caption, position )
+  photos:advert_photos ( id, url, storage_path, caption, position )
 `;
 
 const DETAIL_FIELDS = `
@@ -25,7 +25,7 @@ const DETAIL_FIELDS = `
   like_count, save_count, comment_count, share_count,
   suspended_reason, created_at, updated_at,
   owner:users!adverts_user_id_fkey ( id, full_name, avatar_url, is_verified ),
-  photos:advert_photos ( id, url, caption, position, is_paid )
+  photos:advert_photos ( id, url, storage_path, caption, position, is_paid )
 `;
 
 export const advertRepository = {

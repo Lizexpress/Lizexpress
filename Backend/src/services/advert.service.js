@@ -45,6 +45,11 @@ const setting = async (key) => {
   }
 };
 
+/** Older photos stored in the private bucket get signed links so they still display. */
+const withPhotos = async (advert) =>
+  advert ? { ...advert, photos: await uploadService.resolvePhotoUrls(advert.photos ?? []) } : advert;
+const withPhotosList = async (result) => ({ ...result, items: await Promise.all((result.items ?? []).map(withPhotos)) });
+
 const naira = (kobo) => Math.round(Number(kobo) / 100);
 
 const txRef = (userId) =>
@@ -102,7 +107,7 @@ export const update = async ({ advertId, userId, payload }) => {
     throw Conflict('This advertisement is suspended and cannot be edited. Contact support.');
   }
 
-  return advertRepository.update(advertId, {
+  return withPhotos(await advertRepository.update(advertId, {
     business_name: payload.businessName,
     title: payload.title,
     description: payload.description,
@@ -120,7 +125,7 @@ export const update = async ({ advertId, userId, payload }) => {
     lga: payload.lga,
     city: payload.city,
     address: payload.address,
-  });
+  }));
 };
 
 export const remove = async ({ advertId, userId }) => {
@@ -179,7 +184,7 @@ export const removePhoto = async ({ photoId, userId }) => {
     throw Conflict('This photo has already been paid for and cannot be removed. Archive the advert instead.');
   }
 
-  await uploadService.removeFile(photo.storage_path).catch((error) =>
+  await uploadService.removeImage(photo.storage_path).catch((error) =>
     logger.warn('advert.photo_file_orphaned', { photoId, error: error.message }),
   );
   return advertRepository.removePhoto(photoId);
@@ -244,6 +249,10 @@ export const checkout = async ({ advertId, userId, email }) => {
     status: PAYMENT_STATUS.PENDING,
     purpose: 'advert_photos',
     photo_count: pricing.billablePhotos,
+    // The payments table was built for item fees and may require these. An
+    // advert has no item fee percentage; the "value" is what is being paid.
+    fee_percentage: 0,
+    item_value: pricing.total,
   });
 
   await advertRepository.update(advertId, {
@@ -330,7 +339,7 @@ export const revertAfterFailedPayment = async ({ payment }) => {
 
 /* ───────────────────────── Public reads ───────────────────────── */
 
-export const search = (filters) => advertRepository.search(filters);
+export const search = async (filters) => withPhotosList(await advertRepository.search(filters));
 
 export const detail = async ({ advertId, viewerId }) => {
   const advert = await advertRepository.findById(advertId);
@@ -344,7 +353,7 @@ export const detail = async ({ advertId, viewerId }) => {
   // Owners browsing their own advert should not inflate its view count.
   if (!isOwner) await engagementRepository.record('advert', advertId, 'view', viewerId ?? null).catch(() => {});
 
-  return advert;
+  return withPhotos(advert);
 };
 
 /** Fired when a customer reveals a phone number — the advertiser's ROI signal. */
@@ -353,8 +362,8 @@ export const recordContact = async ({ advertId, viewerId }) => {
   return { recorded: true };
 };
 
-export const mine = ({ userId, page, limit, status }) =>
-  advertRepository.listForUser({ userId, page, limit, status });
+export const mine = async ({ userId, page, limit, status }) =>
+  withPhotosList(await advertRepository.listForUser({ userId, page, limit, status }));
 
 export const locations = () => advertRepository.activeLocations();
 
@@ -363,12 +372,12 @@ export const lgas = (stateCode) => locationRepository.lgas(stateCode);
 
 /* ───────────────────────── Admin ───────────────────────── */
 
-export const adminList = (filters) => advertRepository.listForAdmin(filters);
+export const adminList = async (filters) => withPhotosList(await advertRepository.listForAdmin(filters));
 
 export const adminDetail = async (advertId) => {
   const advert = await advertRepository.findById(advertId);
   if (!advert) throw NotFound('Advertisement not found.');
-  return advert;
+  return withPhotos(advert);
 };
 
 export const adminSetStatus = async ({ advertId, status, reason, actorId, request }) => {

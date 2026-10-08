@@ -79,7 +79,7 @@ const PaymentCallback = () => {
           tx_ref: init.txRef,
           amount: init.amount,
           currency: init.currency,
-          payment_options: 'card,banktransfer,ussd',
+          payment_options: 'banktransfer,card,ussd',
           redirect_url: `${window.location.origin}/payment/callback`,
           customer: init.customer,
           customizations: init.customizations,

@@ -540,7 +540,8 @@ const PublishStep = ({ advert, onBack }) => {
         tx_ref: init.txRef,
         amount: init.amount,
         currency: init.currency,
-        payment_options: 'card,banktransfer,ussd',
+        // Bank transfer listed first: it is how most Nigerian customers prefer to pay.
+        payment_options: 'banktransfer,card,ussd',
         redirect_url: `${window.location.origin}/payment/callback`,
         customer: init.customer,
         customizations: init.customizations,
@@ -606,9 +607,28 @@ const PublishStep = ({ advert, onBack }) => {
           </div>
         )}
 
-        <p className="mt-6 text-sm text-ink-muted">
-          Payment is handled by Flutterwave. You can pay by card, bank transfer or USSD. Your advert goes live as soon as payment is confirmed.
-        </p>
+        {/* Shown before paying, so nobody assumes it is card-only. */}
+        <div className="mt-6">
+          <p className="text-sm font-medium text-ink">Pay your way</p>
+          <ul className="mt-2 grid gap-2 sm:grid-cols-3">
+            {[
+              ['account_balance', 'Bank transfer', 'Send to a one-time account number'],
+              ['credit_card', 'Card', 'Verve, Mastercard or Visa'],
+              ['dialpad', 'USSD', 'Dial a code from your bank'],
+            ].map(([icon, title, hint]) => (
+              <li key={title} className="flex items-start gap-2 rounded-lg border border-line p-3">
+                <Icon name={icon} size="sm" className="mt-0.5 text-brand-600" />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-ink">{title}</span>
+                  <span className="block text-xs text-ink-muted">{hint}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-sm text-ink-muted">
+            Choose your method in the secure Flutterwave window. Your advert goes live as soon as payment is confirmed.
+          </p>
+        </div>
       </div>
     </div>
   );

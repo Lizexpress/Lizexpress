@@ -29,6 +29,35 @@ const reference = () =>
   `LX-KYC-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 
 /**
+ * Where a stored document actually lives.
+ *
+ * v1 saved identity documents in the "verification" bucket, sometimes as a full
+ * URL; the new backend saves bare paths in the private KYC bucket. Reviewers
+ * must be able to open both, or every applicant from before the upgrade shows
+ * blank documents.
+ */
+const locateDocument = (value) => {
+  if (!value) return null;
+  const match = String(value).match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/([^?]+)/);
+  if (match) return { candidates: [match[1]], path: decodeURIComponent(match[2]) };
+  if (/^https?:\/\//.test(value)) return { external: value };
+  // A bare path: new uploads first, then the v1 bucket.
+  return { candidates: [...new Set([env.supabase.bucket, env.supabase.legacyKycBucket])], path: String(value).replace(/^\/+/, '') };
+};
+
+const signDocument = async (value) => {
+  const located = locateDocument(value);
+  if (!located) return null;
+  if (located.external) return located.external;
+  for (const bucket of located.candidates) {
+    const { data, error } = await adminClient.storage.from(bucket).createSignedUrl(located.path, SIGNED_URL_TTL_SECONDS);
+    if (!error && data?.signedUrl) return data.signedUrl;
+  }
+  logger.warn('kyc.sign_url.failed', { path: located.path, tried: located.candidates });
+  return null;
+};
+
+/**
  * Replaces stored storage paths with signed URLs the reviewer's browser can load.
  * Called only on admin read paths — the raw paths never reach a normal user.
  */
@@ -40,13 +69,7 @@ const withSignedDocuments = async (verification) => {
 
   await Promise.all(
     documentFields.map(async (field) => {
-      const path = verification[field];
-      if (!path) return;
-      const { data, error } = await adminClient.storage
-        .from(env.supabase.bucket)
-        .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
-      signed[field] = error ? null : data.signedUrl;
-      if (error) logger.warn('kyc.sign_url.failed', { field, error: error.message });
+      signed[field] = await signDocument(verification[field]);
     }),
   );
 

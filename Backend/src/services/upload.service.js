@@ -49,10 +49,15 @@ export const uploadImage = async ({ userId, file, folder = 'items' }) => {
   assertFile(file, { allowed: IMAGE_TYPES, maxBytes: MAX_IMAGE_BYTES, label: 'Image' });
 
   const path = `${folder}/${userId}/${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${extensionFor(file.mimetype)}`;
-  await put(env.supabase.bucket, path, file);
+  // Photos go to the PUBLIC bucket. Writing them to the private KYC bucket gave
+  // every new photo a public link that the bucket then refused — the broken
+  // image on new adverts and listings.
+  // Profile pictures live with the existing ones in the public avatars bucket.
+  const bucket = String(folder).startsWith('avatar') ? env.supabase.avatarBucket : env.supabase.publicBucket;
+  await put(bucket, path, file);
 
-  const { data } = adminClient.storage.from(env.supabase.bucket).getPublicUrl(path);
-  return { path, url: data.publicUrl };
+  const { data } = adminClient.storage.from(bucket).getPublicUrl(path);
+  return { path, url: data.publicUrl, bucket };
 };
 
 /**
@@ -67,10 +72,40 @@ export const uploadDocument = async ({ userId, file, kind }) => {
   return { path, kind };
 };
 
-export const removeFile = async (path) => {
-  const { error } = await adminClient.storage.from(env.supabase.bucket).remove([path]);
+export const removeFile = async (path, bucket = env.supabase.bucket) => {
+  const { error } = await adminClient.storage.from(bucket).remove([path]);
   if (error) throw new Error(`Could not delete file: ${error.message}`);
   return { deleted: true };
 };
 
-export default { uploadImage, uploadDocument, removeFile };
+/** Deletes a photo wherever it lives (new uploads: public; older ones: private). */
+export const removeImage = async (path) => {
+  await adminClient.storage.from(env.supabase.publicBucket).remove([path]).catch(() => {});
+  if (env.supabase.bucket !== env.supabase.publicBucket) {
+    await adminClient.storage.from(env.supabase.bucket).remove([path]).catch(() => {});
+  }
+  return { deleted: true };
+};
+
+/**
+ * Photos uploaded before the public bucket existed point at the private
+ * bucket, where a public link is refused. Swap those for signed links (valid
+ * for a day) so they display; new uploads never need this.
+ */
+const privatePrefix = () => `/storage/v1/object/public/${env.supabase.bucket}/`;
+
+export const resolvePhotoUrls = async (photos = []) => {
+  if (env.supabase.bucket === env.supabase.publicBucket) return photos;
+  const stale = photos.filter((photo) => photo?.url?.includes(privatePrefix()));
+  if (!stale.length) return photos;
+
+  const { data, error } = await adminClient.storage
+    .from(env.supabase.bucket)
+    .createSignedUrls(stale.map((photo) => photo.storage_path), 60 * 60 * 24);
+  if (error || !data) return photos;
+
+  const signed = new Map(stale.map((photo, index) => [photo.id, data[index]?.signedUrl]));
+  return photos.map((photo) => (signed.get(photo.id) ? { ...photo, url: signed.get(photo.id) } : photo));
+};
+
+export default { uploadImage, uploadDocument, removeFile, removeImage, resolvePhotoUrls };

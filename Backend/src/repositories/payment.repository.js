@@ -4,7 +4,7 @@ import { PAYMENT_STATUS } from '../config/constants.js';
 const FIELDS = `
   id, user_id, item_id, tx_ref, amount, currency, status, flutterwave_transaction_id,
   flutterwave_reference, payment_method, fee_percentage, item_value, failure_reason,
-  paid_at, created_at, updated_at,
+  paid_at, created_at, updated_at, purpose, advert_id, photo_count,
   user:users!payments_user_id_fkey(id, full_name, country),
   item:items(id, name, estimated_cost)
 `;

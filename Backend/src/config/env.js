@@ -44,7 +44,16 @@ export const env = {
     anonKey: process.env.SUPABASE_ANON_KEY,
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
     jwtSecret: process.env.SUPABASE_JWT_SECRET,
+    // Private: identity documents only. Reviewers get short signed links.
     bucket: process.env.SUPABASE_STORAGE_BUCKET ?? 'lizexpress',
+    // Public: photos anyone can see (items, adverts, avatars). Defaults to the
+    // "items" bucket the existing listings already use.
+    publicBucket: process.env.SUPABASE_PUBLIC_BUCKET ?? 'items',
+    // Public: profile pictures (the existing "avatars" bucket).
+    avatarBucket: process.env.SUPABASE_AVATAR_BUCKET ?? 'avatars',
+    // Private: where v1 stored identity documents. Read-only from here on, so
+    // admins can still review documents submitted before the new backend.
+    legacyKycBucket: process.env.SUPABASE_LEGACY_KYC_BUCKET ?? 'verification',
   },
 
   resend: {
