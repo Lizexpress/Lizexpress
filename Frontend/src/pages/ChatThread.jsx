@@ -33,21 +33,63 @@ const ChatThread = () => {
     bottomRef.current?.scrollIntoView({ behavior, block: 'end' });
   }, []);
 
-  useEffect(() => {
-    let active = true;
-    endpoints.chats
-      .detail(id, { limit: 50 })
-      .then(({ data }) => {
-        if (!active) return;
+  /**
+   * Loads the thread, and later re-syncs it.
+   *
+   * Phones drop the live connection all the time — app in the background,
+   * screen locked, Wi-Fi to mobile data. Anything sent during that gap never
+   * arrives over realtime, so the thread re-fetches whenever the page becomes
+   * visible again or the network comes back, and merges by id so nothing
+   * already on screen is duplicated or reordered.
+   */
+  const syncThread = useCallback(
+    async ({ initial = false } = {}) => {
+      try {
+        const { data } = await endpoints.chats.detail(id, { limit: 50 });
         setChat(data.chat);
-        setMessages(data.messages.items ?? data.messages);
-      })
-      .catch(() => navigate('/chats', { replace: true }))
-      .finally(() => active && setIsLoading(false));
-    return () => {
-      active = false;
+        const incoming = data.messages.items ?? data.messages;
+        setMessages((current) => {
+          if (initial) return incoming;
+          const known = new Set(incoming.map((message) => message.id));
+          // Keep local pending/failed messages; server copies replace the rest.
+          const local = current.filter((message) => (message.pending || message.failed) && !known.has(message.id));
+          return [...incoming, ...local];
+        });
+      } catch {
+        if (initial) navigate('/chats', { replace: true });
+      } finally {
+        if (initial) setIsLoading(false);
+      }
+    },
+    [id, navigate],
+  );
+
+  useEffect(() => {
+    setIsLoading(true);
+    syncThread({ initial: true });
+  }, [syncThread]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      syncThread();
+      // Opening the app is when messages are actually read.
+      endpoints.chats.markRead(id).catch(() => {});
     };
-  }, [id, navigate]);
+    const onOnline = () => syncThread();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    window.addEventListener('online', onOnline);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [id, syncThread]);
+
+  // "typing…" must not stick if the other person closes the app mid-word.
+  const typingClear = useRef(null);
+  useEffect(() => () => clearTimeout(typingClear.current), []);
 
   useEffect(() => {
     if (!isLoading) scrollToBottom('instant');
@@ -63,7 +105,9 @@ const ChatThread = () => {
       setMessages((current) => (current.some((entry) => entry.id === message.id) ? current : [...current, message]));
       setTheyAreTyping(false);
       requestAnimationFrame(() => scrollToBottom());
-      endpoints.chats.markRead(id).catch(() => {});
+      // Marking read while the tab is hidden made unread counts drop to zero
+      // for messages nobody had seen. The visibility handler catches up later.
+      if (document.visibilityState === 'visible') endpoints.chats.markRead(id).catch(() => {});
     },
     'message:read': ({ readerId }) => {
       if (readerId === user?.id) return;
@@ -72,6 +116,8 @@ const ChatThread = () => {
     typing: ({ userId, isTyping }) => {
       if (userId === user?.id) return;
       setTheyAreTyping(isTyping);
+      clearTimeout(typingClear.current);
+      if (isTyping) typingClear.current = setTimeout(() => setTheyAreTyping(false), 8000);
     },
   });
 
@@ -108,14 +154,31 @@ const ChatThread = () => {
     ]);
     requestAnimationFrame(() => scrollToBottom());
 
+    await deliver(optimisticId, content);
+    setIsSending(false);
+  };
+
+  const deliver = async (localId, content) => {
     try {
       const saved = await endpoints.chats.send(id, { content });
-      setMessages((current) => current.map((message) => (message.id === optimisticId ? saved : message)));
+      setMessages((current) => {
+        // A re-sync may already have pulled the saved copy in; never show both.
+        const withoutLocal = current.filter((message) => message.id !== localId);
+        return withoutLocal.some((message) => message.id === saved.id) ? withoutLocal : current.map((message) => (message.id === localId ? saved : message));
+      });
     } catch {
-      setMessages((current) => current.map((message) => (message.id === optimisticId ? { ...message, failed: true } : message)));
-    } finally {
-      setIsSending(false);
+      setMessages((current) =>
+        current.map((message) => (message.id === localId ? { ...message, pending: false, failed: true } : message)),
+      );
     }
+  };
+
+  /** Tap a failed message to send it again — the text is never lost. */
+  const retry = (message) => {
+    setMessages((current) =>
+      current.map((entry) => (entry.id === message.id ? { ...entry, failed: false, pending: true } : entry)),
+    );
+    deliver(message.id, message.content);
   };
 
   if (isLoading) return <PageLoader label="Opening conversation" />;
@@ -162,16 +225,28 @@ const ChatThread = () => {
               <div
                 className={cn(
                   'max-w-[80%] rounded-2xl px-3.5 py-2.5 sm:max-w-[65%]',
-                  isMine
-                    ? 'rounded-br-md bg-purple-600 text-white'
-                    : 'rounded-bl-md border border-line bg-white text-ink',
+                  // Failed replaces the purple outright — combining both let the
+                  // purple win and a failed message looked delivered.
+                  message.failed
+                    ? 'rounded-br-md border border-danger/30 bg-danger-soft text-danger'
+                    : isMine
+                      ? 'rounded-br-md bg-purple-600 text-white'
+                      : 'rounded-bl-md border border-line bg-white text-ink',
                   message.pending && 'opacity-60',
-                  message.failed && 'border-danger bg-danger-soft text-danger',
                 )}
               >
                 <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">{message.content}</p>
-                <p className={cn('mt-1 text-right text-[10px]', isMine ? 'text-purple-200' : 'text-ink-faint')}>
-                  {message.failed ? 'Not sent' : messageTime(message.created_at)}
+                {message.failed && (
+                  <button
+                    type="button"
+                    onClick={() => retry(message)}
+                    className="mt-1 text-xs font-medium underline underline-offset-2"
+                  >
+                    Not sent. Tap to retry
+                  </button>
+                )}
+                <p className={cn('mt-1 text-right text-[10px]', isMine && !message.failed ? 'text-purple-200' : 'text-ink-faint')}>
+                  {message.failed ? '' : message.pending ? 'Sending…' : messageTime(message.created_at)}
                   {isMine && message.is_read && ' · Read'}
                 </p>
               </div>

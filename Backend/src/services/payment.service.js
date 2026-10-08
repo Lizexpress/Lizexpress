@@ -21,6 +21,7 @@ import { BadRequest, NotFound, Forbidden, Conflict, ServiceUnavailable } from '.
 import { PAYMENT_STATUS, ITEM_STATUS, NOTIFICATION_TYPE } from '../config/constants.js';
 import env from '../config/env.js';
 import logger from '../lib/logger.js';
+import advertService from './advert.service.js';
 
 const txRef = (userId) =>
   `LX-${Date.now()}-${userId.slice(0, 8)}-${Math.random().toString(36).slice(2, 7)}`.toUpperCase();
@@ -133,6 +134,9 @@ const settle = async ({ payment, flwData }) => {
     });
 
     if (payment.item_id) await itemRepository.update(payment.item_id, { status: ITEM_STATUS.DRAFT });
+    if (payment.purpose === 'advert_photos' && payment.advert_id) {
+      await advertService.revertAfterFailedPayment({ payment });
+    }
 
     const { data: authUser } = await adminClient.auth.admin.getUserById(payment.user_id);
     if (authUser?.user?.email) {
@@ -156,6 +160,14 @@ const settle = async ({ payment, flwData }) => {
     payment_method: flwData.payment_type,
     paid_at: new Date().toISOString(),
   });
+
+  /* Advert payments publish the advert and stop here — the item receipt
+     below would describe a listing fee the customer never paid. */
+  if (payment.purpose === 'advert_photos') {
+    const advert = await advertService.activateAfterPayment({ payment: { ...payment, ...updated } });
+    logger.info('payment.settled', { txRef: payment.tx_ref, amount: payment.amount, purpose: payment.purpose });
+    return { settled: true, payment: updated, advert };
+  }
 
   let item = null;
   if (payment.item_id) {
@@ -218,6 +230,8 @@ export const confirm = async ({ txRef: reference, transactionId, userId }) => {
     status: outcome.settled || outcome.alreadySettled ? 'successful' : 'failed',
     txRef: reference,
     itemId: payment.item_id,
+    advertId: payment.advert_id ?? null,
+    purpose: payment.purpose ?? 'item_listing',
   };
 };
 

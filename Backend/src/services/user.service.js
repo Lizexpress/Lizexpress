@@ -1,3 +1,4 @@
+import advertRepository from '../repositories/advert.repository.js';
 import userRepository from '../repositories/user.repository.js';
 import itemRepository from '../repositories/item.repository.js';
 import { messageRepository } from '../repositories/chat.repository.js';
@@ -57,7 +58,13 @@ export const dashboardSummary = async (userId) => {
     notificationRepository.unreadCount(userId),
   ]);
 
-  return { totalListings, activeListings, swapped, savedItems, unreadMessages, unreadNotifications };
+  // Advert figures are additive; a failure here must not blank the swap dashboard.
+  const advertStats = await advertRepository.statsForUser(userId).catch(() => ({}));
+
+  return {
+    totalListings, activeListings, swapped, savedItems, unreadMessages, unreadNotifications,
+    ...advertStats,
+  };
 };
 
 export default { profile, publicProfile, updateProfile, updatePreferences, dashboardSummary };

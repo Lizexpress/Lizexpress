@@ -7,6 +7,18 @@
  *  - single use, TTL-bounded, attempt-capped
  *  - a resend cooldown stops the endpoint being used as an email cannon
  *  - verification is constant-time and does not reveal whether the email exists
+ *
+ * ──────────────────────────────────────────────────────────────────────────
+ *  FIXED HERE: the dead-end retry loop.
+ *
+ *  The code row was written BEFORE the email was sent. When Resend failed, the
+ *  request threw — but the row survived, so the cooldown was now armed against
+ *  a code the user never received. Their retry hit "Please wait 60 seconds",
+ *  and the retry after that did too. Users reported this as verification codes
+ *  and password resets simply never working.
+ *
+ *  Delivery failure now rolls the row back, so retrying is immediate.
+ * ──────────────────────────────────────────────────────────────────────────
  */
 import otpRepository from '../repositories/otp.repository.js';
 import { generateOtp, hashOtp, randomToken, safeEqual } from '../lib/crypto.js';
@@ -43,7 +55,7 @@ export const issueOtp = async ({ email, purpose, name, userId, request }) => {
   const salt = randomToken(16);
   const expiresAt = new Date(Date.now() + env.otp.ttlMinutes * 60_000).toISOString();
 
-  await otpRepository.create({
+  const record = await otpRepository.create({
     email,
     purpose,
     codeHash: hashOtp(code, salt),
@@ -54,8 +66,6 @@ export const issueOtp = async ({ email, purpose, name, userId, request }) => {
     userAgent: request?.userAgent,
   });
 
-  // Delivery failure must be surfaced — a user staring at a code entry screen
-  // that will never receive a code is worse than an explicit error.
   const result = await sendTemplate(
     TEMPLATE_BY_PURPOSE[purpose],
     email,
@@ -63,8 +73,18 @@ export const issueOtp = async ({ email, purpose, name, userId, request }) => {
     { throwOnError: false },
   );
 
+  /**
+   * Delivery failed. Burn the row before throwing, otherwise the cooldown now
+   * guards a code that was never delivered and the user's next three attempts
+   * are rejected with "please wait" — the reported dead end.
+   */
   if (!result.sent) {
-    logger.error('otp.delivery.failed', { email, purpose });
+    try {
+      if (record?.id) await otpRepository.consume(record.id);
+    } catch (cleanupError) {
+      logger.error('otp.cleanup.failed', { error: cleanupError.message });
+    }
+    logger.error('otp.delivery.failed', { email, purpose, reason: result.error ?? 'unknown' });
     throw BadRequest('We could not send your verification code right now. Please try again in a moment.');
   }
 

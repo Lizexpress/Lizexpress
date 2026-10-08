@@ -33,6 +33,7 @@ export const authSchemas = {
     fullName: z.string().trim().min(2, 'Enter your full name.').max(120),
     email,
     password,
+    accountTypes: z.array(z.enum(['swapper', 'advertiser'])).min(1).max(2).optional(),
     acceptedTerms: z.literal(true, { errorMap: () => ({ message: 'You must accept the terms to continue.' }) }),
   }),
   verifyEmail: z.object({ email, code: otpCode }),
@@ -227,3 +228,6 @@ export const feedbackSchemas = {
     pageUrl: z.string().max(500).optional(),
   }),
 };
+
+/* ── Advertising + onboarding ── */
+export * from './advert.validators.js';

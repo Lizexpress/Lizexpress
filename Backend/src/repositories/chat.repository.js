@@ -107,20 +107,20 @@ export const messageRepository = {
     );
   },
 
+  /**
+   * One query instead of two. The old version fetched every chat id, then sent
+   * them all back in an IN (...) list — for an active trader with hundreds of
+   * conversations that URL outgrew PostgREST's limit and the badge silently
+   * stopped updating.
+   */
   async unreadCount(userId) {
-    const chats = unwrap(
-      await db.from('chats').select('id').or(`sender_id.eq.${userId},receiver_id.eq.${userId}`),
-      'unread chats',
-    );
-    const ids = (chats ?? []).map((chat) => chat.id);
-    if (!ids.length) return 0;
     const { count } = unwrap(
       await db
         .from('messages')
-        .select('id', { count: 'exact', head: true })
-        .in('chat_id', ids)
+        .select('id, chat:chats!inner(sender_id, receiver_id)', { count: 'exact', head: true })
         .neq('sender_id', userId)
-        .eq('is_read', false),
+        .eq('is_read', false)
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`, { referencedTable: 'chats' }),
       'count unread',
     );
     return count ?? 0;

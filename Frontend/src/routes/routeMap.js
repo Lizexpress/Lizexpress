@@ -31,6 +31,11 @@ export const loaders = {
   verification: () => import('../pages/dashboard/Verification.jsx'),
 
   listItem: () => import('../pages/ListItem.jsx'),
+  adverts: () => import('../pages/adverts/BrowseAdverts.jsx'),
+  advertDetail: () => import('../pages/adverts/AdvertDetail.jsx'),
+  myAdverts: () => import('../pages/adverts/MyAdverts.jsx'),
+  advertEditor: () => import('../pages/adverts/AdvertEditor.jsx'),
+  onboarding: () => import('../pages/onboarding/Onboarding.jsx'),
   paymentCallback: () => import('../pages/PaymentCallback.jsx'),
   chats: () => import('../pages/Chats.jsx'),
   chatThread: () => import('../pages/ChatThread.jsx'),
@@ -47,11 +52,18 @@ export const loaders = {
   adminFeedback: () => import('../admin/pages/AdminFeedback.jsx'),
   adminAudit: () => import('../admin/pages/AdminAudit.jsx'),
   adminSettings: () => import('../admin/pages/AdminSettings.jsx'),
+  adminAdverts: () => import('../admin/pages/AdminAdverts.jsx'),
 };
 
 /** Path pattern → loader. Order matters: first match wins. */
 const ROUTE_PATTERNS = [
   ['/browse', loaders.browse],
+  ['/adverts/:id', loaders.advertDetail],
+  ['/adverts', loaders.adverts],
+  ['/dashboard/adverts/new', loaders.advertEditor],
+  ['/dashboard/adverts/:id', loaders.advertEditor],
+  ['/dashboard/adverts', loaders.myAdverts],
+  ['/onboarding', loaders.onboarding],
   ['/items/:id', loaders.itemDetail],
   ['/how-it-works', loaders.howItWorks],
   ['/about', loaders.about],
@@ -85,6 +97,7 @@ const ROUTE_PATTERNS = [
   ['/admin/feedback', loaders.adminFeedback],
   ['/admin/audit-log', loaders.adminAudit],
   ['/admin/settings', loaders.adminSettings],
+  ['/admin/adverts', loaders.adminAdverts],
   ['/admin', loaders.adminDashboard],
   ['/', loaders.home],
 ];
@@ -117,8 +130,8 @@ export const prefetchRoute = (path) => {
  */
 export const prefetchLikelyRoutes = (isAuthenticated) => {
   const paths = isAuthenticated
-    ? ['/browse', '/dashboard', '/chats']
-    : ['/browse', '/login', '/register'];
+    ? ['/browse', '/adverts', '/dashboard', '/chats']
+    : ['/browse', '/adverts', '/login', '/register'];
 
   const run = () => paths.forEach(prefetchRoute);
 

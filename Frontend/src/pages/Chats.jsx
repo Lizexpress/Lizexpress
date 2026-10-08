@@ -15,10 +15,23 @@ const Chats = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    endpoints.chats
-      .list({ limit: 50 })
-      .then(({ data }) => setChats(data))
-      .finally(() => setIsLoading(false));
+    const load = () =>
+      endpoints.chats
+        .list({ limit: 50 })
+        .then(({ data }) => setChats(data))
+        .catch(() => {})
+        .finally(() => setIsLoading(false));
+    load();
+
+    // The inbox order and previews go stale while the phone is locked;
+    // refresh whenever the person comes back to it.
+    const onVisible = () => document.visibilityState === 'visible' && load();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', load);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', load);
+    };
   }, []);
 
   const otherParty = (chat) => (chat.sender_id === user?.id ? chat.receiver : chat.sender);

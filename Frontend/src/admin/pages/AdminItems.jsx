@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Search, ExternalLink } from 'lucide-react';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { DataTable } from '../components/DataTable.jsx';
@@ -11,6 +10,7 @@ import { endpoints } from '../../lib/api.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useDebounce } from '../../hooks/useDebounce.js';
 import { money, timeAgo } from '../../lib/format.js';
+import { publicUrl } from '../../lib/publicUrl.js';
 
 const AdminItems = () => {
   const toast = useToast();
@@ -73,7 +73,7 @@ const AdminItems = () => {
       className: 'text-right',
       render: (row) => (
         <div className="flex justify-end gap-1.5">
-          <Button as={Link} to={`/items/${row.id}`} size="sm" variant="ghost" aria-label="View listing">
+          <Button as="a" href={publicUrl(`/items/${row.id}`)} target="_blank" rel="noopener noreferrer" size="sm" variant="ghost" aria-label="View listing">
             <ExternalLink size={14} />
           </Button>
           <Button size="sm" variant="outline" onClick={() => setSelected(row)}>Moderate</Button>

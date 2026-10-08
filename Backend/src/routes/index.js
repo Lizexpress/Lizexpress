@@ -7,6 +7,7 @@ import verificationRoutes from './verification.routes.js';
 import paymentRoutes from './payment.routes.js';
 import notificationRoutes from './notification.routes.js';
 import adminRoutes from './admin.routes.js';
+import advertRoutes from './advert.routes.js';
 import * as misc from '../controllers/misc.controller.js';
 import { validate } from '../middleware/validate.js';
 import { optionalAuth } from '../middleware/auth.js';
@@ -25,6 +26,7 @@ router.use('/chats', chatRoutes);
 router.use('/verifications', verificationRoutes);
 router.use('/payments', paymentRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/adverts', advertRoutes);
 router.use('/admin', adminRoutes);
 
 export default router;

@@ -59,3 +59,7 @@ export const changePassword = asyncHandler(async (req, res) => {
 export const me = asyncHandler(async (req, res) => {
   ok(res, await authService.me({ userId: req.auth.id, email: req.auth.email }));
 });
+
+export const completeOnboarding = asyncHandler(async (req, res) => {
+  ok(res, await authService.completeOnboarding({ userId: req.auth.id, ...req.body }));
+});

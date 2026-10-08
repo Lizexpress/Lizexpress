@@ -43,6 +43,15 @@ export const useNotifications = () => {
 
   useEffect(() => {
     loadCounts();
+    // Badge events sent while the live connection was down are lost, so the
+    // counts are re-read on return rather than trusted from the last event.
+    const onVisible = () => document.visibilityState === 'visible' && loadCounts();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', loadCounts);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', loadCounts);
+    };
   }, [loadCounts]);
 
   useRealtimeChannel(

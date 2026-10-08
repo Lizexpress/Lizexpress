@@ -14,7 +14,7 @@ const money = (amount, currency = 'NGN') =>
 const firstName = (name) => (name ? String(name).trim().split(/\s+/)[0] : 'there');
 
 const p = (text) => `<p style="margin:0 0 16px;">${text}</p>`;
-const strong = (text) => `<strong style="color:${BRAND.ink};font-weight:700;">${text}</strong>`;
+const strong = (text) => `<strong style="color:${BRAND.ink};font-weight:600;">${text}</strong>`;
 
 /* ─────────────────── Authentication ─────────────────── */
 
@@ -108,11 +108,11 @@ export const welcome = ({ name }) => ({
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                   <tr><td width="28" height="28" align="center" bgcolor="${BRAND.orangeTint}"
                       style="border-radius:14px;font-family:Arial,sans-serif;font-size:13px;
-                             font-weight:700;color:${BRAND.purple};">${num}</td></tr>
+                             font-weight:600;color:${BRAND.purple};">${num}</td></tr>
                 </table>
               </td>
               <td valign="top" style="padding:0 0 18px;">
-                <p style="margin:0 0 3px;font-size:16px;font-weight:700;color:${BRAND.ink};">${title}</p>
+                <p style="margin:0 0 3px;font-size:16px;font-weight:600;color:${BRAND.ink};">${title}</p>
                 <p style="margin:0;font-size:14px;line-height:1.6;color:${BRAND.body};">${copy}</p>
               </td>
             </tr>`,
@@ -245,10 +245,10 @@ export const newMessage = ({ name, senderName, itemName, preview, chatId }) => (
         <tr><td bgcolor="${BRAND.purpleTint}" style="border-radius:12px;padding:18px 20px;
             font-size:15px;line-height:1.6;color:${BRAND.ink};font-style:italic;">"${preview}"</td></tr>
       </table>` +
-      button('Reply now', `${env.appUrl}/chat/${chatId}`),
+      button('Reply now', `${env.appUrl}/chats/${chatId}`),
     footNote: 'Keep conversations and payments on LizExpress. We cannot help with deals arranged off-platform.',
   }),
-  text: toPlainText([`${senderName} sent you a message about ${itemName}.`, `"${preview}"`, `${env.appUrl}/chat/${chatId}`]),
+  text: toPlainText([`${senderName} sent you a message about ${itemName}.`, `"${preview}"`, `${env.appUrl}/chats/${chatId}`]),
 });
 
 export const swapOffer = ({ name, offerBy, yourItem, offeredItem, chatId }) => ({
@@ -259,9 +259,9 @@ export const swapOffer = ({ name, offerBy, yourItem, offeredItem, chatId }) => (
     heading: 'You have a swap offer',
     body:
       p(`${firstName(name)}, ${strong(offerBy)} would like to swap ${strong(offeredItem)} for your ${strong(yourItem)}.`) +
-      button('Review the offer', `${env.appUrl}/chat/${chatId}`),
+      button('Review the offer', `${env.appUrl}/chats/${chatId}`),
   }),
-  text: toPlainText([`${offerBy} offered ${offeredItem} for your ${yourItem}.`, `${env.appUrl}/chat/${chatId}`]),
+  text: toPlainText([`${offerBy} offered ${offeredItem} for your ${yourItem}.`, `${env.appUrl}/chats/${chatId}`]),
 });
 
 export const accountSuspended = ({ name, reason }) => ({
@@ -309,7 +309,11 @@ export const adminInvite = ({ name, role, inviteUrl, invitedBy }) => ({
   text: toPlainText([`You were invited to the LizExpress admin console as ${role}.`, inviteUrl]),
 });
 
+export { advertLaunch } from './advertLaunch.js';
+import { advertLaunch } from './advertLaunch.js';
+
 export default {
+  advertLaunch,
   signupOtp,
   loginOtp,
   passwordResetOtp,

@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import * as controller from '../controllers/admin.controller.js';
 import * as verification from '../controllers/verification.controller.js';
+import * as adverts from '../controllers/advert.controller.js';
+import { advertSchemas } from '../validators/advert.validators.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth, requireAdmin } from '../middleware/auth.js';
 import { adminSchemas, verificationSchemas, itemSchemas, pagination } from '../validators/index.js';
@@ -51,6 +53,16 @@ router.delete('/users/:id', requireAdmin(USER_ROLE.SUPER_ADMIN), validate({ para
 router.get('/items', validate({ query: itemSchemas.browse }), controller.listItems);
 router.patch('/items/:id/status', validate({ params: adminSchemas.idParam, body: adminSchemas.itemStatus }), controller.setItemStatus);
 router.get('/payments', validate({ query: pagination }), controller.listPayments);
+
+/* Advertisements */
+router.get('/adverts/stats', adverts.adminStats);
+router.get('/adverts', validate({ query: advertSchemas.adminList }), adverts.adminList);
+router.get('/adverts/:id', validate({ params: advertSchemas.idParam }), adverts.adminDetail);
+router.patch(
+  '/adverts/:id/status',
+  validate({ params: advertSchemas.idParam, body: advertSchemas.adminStatus }),
+  adverts.adminSetStatus,
+);
 router.get('/messages/recent', controller.recentMessages);
 
 /* Tasks */

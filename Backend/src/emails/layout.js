@@ -27,8 +27,12 @@ export const BRAND = {
   danger: '#C0342B',
 };
 
+// Archivo where the client supports web fonts (Apple Mail, iOS, Samsung, some
+// Outlook builds); a near-identical system grotesque everywhere else, so no
+// layout depends on the font arriving. Gmail ignores web fonts entirely.
 const FONT_STACK =
-  "'Satoshi','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,'Helvetica Neue',Arial,sans-serif";
+  "'Archivo','Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,'Helvetica Neue',Arial,sans-serif";
+export const MONO_STACK = "'IBM Plex Mono','SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace";
 
 const assets = `${env.appUrl.replace(/\/$/, '')}/email-assets`;
 
@@ -56,7 +60,7 @@ export const button = (label, url, variant = 'primary') => {
       <td align="center" bgcolor="${bg}" style="border-radius:10px;">
         <a href="${url}"
            style="display:inline-block;padding:15px 38px;font-family:${FONT_STACK};font-size:16px;
-                  font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:10px;
+                  font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:10px;
                   letter-spacing:-0.01em;mso-padding-alt:15px 38px;">${label}</a>
       </td>
     </tr>
@@ -69,12 +73,12 @@ export const otpBlock = (code, ttlMinutes) => `
     <tr>
       <td align="center" bgcolor="${BRAND.orangeTint}"
           style="border:1px solid #F6DCB4;border-radius:14px;padding:26px 16px;">
-        <p style="margin:0 0 10px;font-family:${FONT_STACK};font-size:12px;font-weight:700;
+        <p style="margin:0 0 10px;font-family:${FONT_STACK};font-size:12px;font-weight:600;
                   letter-spacing:0.12em;text-transform:uppercase;color:${BRAND.muted};">
           Your verification code
         </p>
-        <p style="margin:0;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
-                  font-size:40px;line-height:1.1;font-weight:700;letter-spacing:0.22em;
+        <p style="margin:0;font-family:${MONO_STACK};
+                  font-size:40px;line-height:1.1;font-weight:600;letter-spacing:0.22em;
                   color:${BRAND.purple};padding-left:0.22em;">${code}</p>
         <p style="margin:12px 0 0;font-family:${FONT_STACK};font-size:13px;color:${BRAND.muted};">
           Expires in ${ttlMinutes} minutes · one use only
@@ -141,6 +145,8 @@ export const renderLayout = ({ preheader, eyebrow, heading, body, footNote = '' 
   PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
@@ -183,7 +189,7 @@ export const renderLayout = ({ preheader, eyebrow, heading, body, footNote = '' 
                     <a href="${env.appUrl}" style="text-decoration:none;">
                       <img src="${assets}/logo-white.png" width="132" height="30" alt="LizExpress"
                            style="display:block;border:0;height:30px;width:auto;
-                                  font-family:${FONT_STACK};font-size:19px;font-weight:700;
+                                  font-family:${FONT_STACK};font-size:19px;font-weight:600;
                                   color:#FFFFFF;text-decoration:none;" />
                     </a>
                   </td>
@@ -204,12 +210,12 @@ export const renderLayout = ({ preheader, eyebrow, heading, body, footNote = '' 
             <td class="lx-pad" style="padding:38px 40px 12px;">
               ${
                 eyebrow
-                  ? `<p style="margin:0 0 10px;font-family:${FONT_STACK};font-size:12px;font-weight:700;
+                  ? `<p style="margin:0 0 10px;font-family:${FONT_STACK};font-size:12px;font-weight:600;
                         letter-spacing:0.13em;text-transform:uppercase;color:${BRAND.orange};">${eyebrow}</p>`
                   : ''
               }
               <h1 class="lx-h1" style="margin:0 0 18px;font-family:${FONT_STACK};font-size:27px;
-                     line-height:1.25;font-weight:700;letter-spacing:-0.02em;color:${BRAND.ink};">${heading}</h1>
+                     line-height:1.25;font-weight:600;letter-spacing:-0.02em;color:${BRAND.ink};">${heading}</h1>
               <div style="font-family:${FONT_STACK};font-size:16px;line-height:1.68;color:${BRAND.body};">
                 ${body}
               </div>

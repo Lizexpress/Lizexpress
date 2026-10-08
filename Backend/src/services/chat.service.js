@@ -6,6 +6,7 @@ import realtime from './realtime.service.js';
 import { adminClient } from '../lib/supabase.js';
 import { NotFound, Forbidden, BadRequest } from '../lib/errors.js';
 import { NOTIFICATION_TYPE, ITEM_STATUS } from '../config/constants.js';
+import logger from '../lib/logger.js';
 
 const assertParticipant = (chat, userId) => {
   if (chat.sender_id !== userId && chat.receiver_id !== userId) {
@@ -62,35 +63,51 @@ export const sendMessage = async ({ chatId, senderId, content, attachments = [],
     metadata: metadata ?? null,
   });
 
-  const preview = content?.trim().slice(0, 140) ?? '📎 Attachment';
-  await chatRepository.touch(chatId, preview);
-  await realtime.messageCreated(chatId, message);
+  // `?? ` never fired for an attachment-only message: ''.slice() is '', not null.
+  const preview = content?.trim() ? content.trim().slice(0, 140) : '📎 Attachment';
 
-  const recipientId = chat.sender_id === senderId ? chat.receiver_id : chat.sender_id;
-  const sender = await userRepository.findById(senderId);
-  const { data: authUser } = await adminClient.auth.admin.getUserById(recipientId);
+  /**
+   * Everything below happens AFTER the message is saved, so none of it may
+   * fail the request. Previously a hiccup in notifications (a slow database
+   * call, a push provider error) surfaced to the sender as "Not sent" for a
+   * message that had in fact been delivered — they sent it again, and the
+   * other person received it twice.
+   *
+   * Realtime goes first so the recipient sees the message as early as possible.
+   */
+  await Promise.allSettled([chatRepository.touch(chatId, preview), realtime.messageCreated(chatId, message)]);
 
-  await notify({
-    userId: recipientId,
-    type: NOTIFICATION_TYPE.MESSAGE,
-    title: `New message from ${sender?.full_name ?? 'a swapper'}`,
-    content: preview,
-    actionUrl: `/chat/${chatId}`,
-    data: { chatId, itemId: chat.item_id },
-    email: authUser?.user?.email
-      ? {
-          template: 'newMessage',
-          to: authUser.user.email,
-          props: {
-            name: otherParty(chat, senderId)?.full_name,
-            senderName: sender?.full_name ?? 'A swapper',
-            itemName: chat.item?.name ?? 'your item',
-            preview,
-            chatId,
-          },
-        }
-      : undefined,
-  });
+  try {
+    const recipientId = chat.sender_id === senderId ? chat.receiver_id : chat.sender_id;
+    const [sender, { data: authUser }] = await Promise.all([
+      userRepository.findById(senderId),
+      adminClient.auth.admin.getUserById(recipientId),
+    ]);
+
+    await notify({
+      userId: recipientId,
+      type: NOTIFICATION_TYPE.MESSAGE,
+      title: `New message from ${sender?.full_name ?? 'a swapper'}`,
+      content: preview,
+      actionUrl: `/chats/${chatId}`,
+      data: { chatId, itemId: chat.item_id },
+      email: authUser?.user?.email
+        ? {
+            template: 'newMessage',
+            to: authUser.user.email,
+            props: {
+              name: otherParty(chat, senderId)?.full_name,
+              senderName: sender?.full_name ?? 'A swapper',
+              itemName: chat.item?.name ?? 'your item',
+              preview,
+              chatId,
+            },
+          }
+        : undefined,
+    });
+  } catch (error) {
+    logger.warn('chat.notify_failed', { chatId, messageId: message.id, error: error.message });
+  }
 
   return message;
 };

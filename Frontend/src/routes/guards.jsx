@@ -60,3 +60,20 @@ export const RequireStaff = () => {
 
   return <Outlet />;
 };
+
+/**
+ * Sends brand-new accounts through the swap / advertise choice once.
+ *
+ * Only an explicit `false` redirects. Accounts that existed before advertising
+ * launched were set to true by migration 0001, and a profile that predates the
+ * column (undefined) is treated as done — an existing user must never be
+ * bounced into onboarding by a missing field.
+ */
+export const RequireOnboarded = () => {
+  const { user, isStaff } = useAuth();
+  const location = useLocation();
+  if (user && !isStaff && user.onboarding_completed === false) {
+    return <Navigate to="/onboarding" replace state={{ from: location }} />;
+  }
+  return <Outlet />;
+};

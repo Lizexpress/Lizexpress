@@ -1,13 +1,13 @@
 import { Suspense, useState } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ShieldCheck, Users, Package, CreditCard,
-  ListTodo, MessageSquare, ScrollText, Settings, Menu, ExternalLink, LogOut,
-} from 'lucide-react';
+  ListTodo, MessageSquare, ScrollText, Settings, Menu, ExternalLink, LogOut, Megaphone } from 'lucide-react';
 import { Logo } from '../components/layout/Logo.jsx';
 import { Avatar } from '../components/ui/Avatar.jsx';
 import { PageLoader } from '../components/ui/Spinner.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
+import { publicUrl } from '../lib/publicUrl.js';
 import { cn } from '../lib/cn.js';
 
 const NAV = [
@@ -15,6 +15,7 @@ const NAV = [
   { to: '/admin/verifications', label: 'Verifications', icon: ShieldCheck },
   { to: '/admin/users', label: 'Users', icon: Users },
   { to: '/admin/items', label: 'Listings', icon: Package },
+  { to: '/admin/adverts', label: 'Adverts', icon: Megaphone },
   { to: '/admin/payments', label: 'Payments', icon: CreditCard },
   { to: '/admin/tasks', label: 'Tasks', icon: ListTodo },
   { to: '/admin/feedback', label: 'Feedback', icon: MessageSquare },
@@ -64,13 +65,15 @@ export const AdminLayout = () => {
       </div>
 
       <div className="border-t border-white/10 p-3">
-        <Link
-          to="/"
+        <a
+          href={publicUrl('/')}
+          target="_blank"
+          rel="noopener noreferrer"
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-purple-100/80 transition hover:bg-white/10 hover:text-white"
         >
           <ExternalLink size={17} aria-hidden="true" />
           View the marketplace
-        </Link>
+        </a>
         <button
           type="button"
           onClick={async () => {

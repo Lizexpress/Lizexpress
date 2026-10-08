@@ -22,7 +22,7 @@ const loadIdentity = async (token) => {
   const profile = unwrap(
     await adminClient
       .from('users')
-      .select('id, full_name, avatar_url, role, is_verified, is_suspended, profile_completed')
+      .select('id, full_name, avatar_url, role, is_verified, is_suspended, profile_completed, account_types, onboarding_completed')
       .eq('id', data.user.id)
       .maybeSingle(),
     'load profile',
@@ -39,6 +39,8 @@ const loadIdentity = async (token) => {
     role: profile?.role ?? 'user',
     isVerified: Boolean(profile?.is_verified),
     profileCompleted: Boolean(profile?.profile_completed),
+    accountTypes: profile?.account_types ?? ['swapper'],
+    onboardingCompleted: profile ? Boolean(profile.onboarding_completed) : true,
     fullName: profile?.full_name ?? null,
     avatarUrl: profile?.avatar_url ?? null,
     token,

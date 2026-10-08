@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, X, User, LogOut, Settings, LayoutDashboard, Package, Heart, Shield } from 'lucide-react';
+import { Menu, X, User, LogOut, Settings, LayoutDashboard, Package, Heart, Shield, Megaphone } from 'lucide-react';
 import { SmartLink as Link, SmartNavLink as NavLink } from '../ui/SmartLink.jsx';
 import { Logo } from './Logo.jsx';
 import { NotificationMenu } from './NotificationMenu.jsx';
@@ -41,6 +41,7 @@ export const Header = () => {
   const accountLinks = [
     { to: '/dashboard', label: 'My Profile', icon: User },
     { to: '/dashboard/listings', label: 'My Listings', icon: Package },
+    { to: '/dashboard/adverts', label: 'My Adverts', icon: Megaphone },
     { to: '/dashboard/favorites', label: 'Saved Items', icon: Heart },
     { to: '/settings', label: 'Settings', icon: Settings },
     ...(isStaff ? [{ to: '/admin', label: 'Admin Console', icon: Shield }] : []),
@@ -54,6 +55,7 @@ export const Header = () => {
         <nav className="hidden items-center gap-6 md:flex" aria-label="Main">
           <NavLink to="/" end className={linkClass}>HOME</NavLink>
           <NavLink to="/browse" className={linkClass}>BROWSE</NavLink>
+          <NavLink to="/adverts" className={linkClass}>ADVERTS</NavLink>
           {isAuthenticated && (
             <>
               <NavLink to="/dashboard" className={linkClass}>DASHBOARD</NavLink>
@@ -143,6 +145,7 @@ export const Header = () => {
           <nav className="container-page grid gap-1 py-3" aria-label="Mobile">
             <NavLink to="/" end onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">HOME</NavLink>
             <NavLink to="/browse" onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">BROWSE</NavLink>
+            <NavLink to="/adverts" onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">ADVERTS</NavLink>
             {isAuthenticated ? (
               <>
                 <NavLink to="/dashboard" onClick={() => setMobileOpen(false)} className="py-2.5 text-white hover:text-orange-500">DASHBOARD</NavLink>

@@ -24,6 +24,10 @@ const PaymentCallback = () => {
   const flwStatus = params.get('status');
 
   const [state, setState] = useState('working');
+  // Advert payments use an LXAD- reference, so the kind is known even on a
+  // cancelled checkout, where the server is never asked.
+  const isAdvert = (txRef ?? '').toUpperCase().startsWith('LXAD-');
+  const [advertId, setAdvertId] = useState(null);
   const [quote, setQuote] = useState(null);
   const [message, setMessage] = useState('');
   const started = useRef(false);
@@ -41,6 +45,7 @@ const PaymentCallback = () => {
         }
         try {
           const result = await endpoints.payments.confirm({ txRef, transactionId });
+          if (result.advertId) setAdvertId(result.advertId);
           setState(result.status === 'successful' ? 'success' : 'failed');
         } catch (error) {
           setState('failed');
@@ -95,6 +100,12 @@ const PaymentCallback = () => {
     cancelled: { icon: XCircle, tone: 'text-ink-muted', title: 'Payment cancelled', copy: 'Your item is saved as a draft. You can pay whenever you are ready.' },
   };
 
+  if (isAdvert) {
+    PANELS.success.copy = 'Your advert is live. Customers in your area can now find it.';
+    PANELS.failed.copy = message || 'You have not been charged. Your advert is saved; you can pay from My adverts.';
+    PANELS.cancelled.copy = 'Your advert is saved. You can pay whenever you are ready.';
+  }
+
   const panel = PANELS[state];
 
   return (
@@ -110,7 +121,18 @@ const PaymentCallback = () => {
         </p>
       )}
 
-      {['success', 'failed', 'cancelled'].includes(state) && (
+      {isAdvert && ['success', 'failed', 'cancelled'].includes(state) && (
+        <div className="mt-8 flex flex-wrap justify-center gap-2">
+          {state === 'success' && advertId && (
+            <Link to={`/adverts/${advertId}`} className="btn-primary">View your advert</Link>
+          )}
+          <Link to="/dashboard/adverts" className={state === 'success' ? 'btn-secondary' : 'btn-primary'}>
+            {state === 'success' ? 'My adverts' : 'Back to my adverts'}
+          </Link>
+        </div>
+      )}
+
+      {!isAdvert && ['success', 'failed', 'cancelled'].includes(state) && (
         <div className="mt-7 flex gap-3">
           <Button as={Link} to="/dashboard/listings" variant={state === 'success' ? 'outline' : 'primary'}>
             {state === 'success' ? 'View my listings' : 'Try again'}

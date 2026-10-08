@@ -7,7 +7,8 @@ const FULL_FIELDS = `
   id, full_name, avatar_url, phone, residential_address, date_of_birth, language, gender,
   country, state, city, zip_code, nationality, role, is_verified, is_suspended,
   suspension_reason, verification_submitted, profile_completed, last_seen_at,
-  notification_preferences, created_at, updated_at
+  notification_preferences, account_types, onboarding_completed, onboarding_step,
+  business_name, business_phone, business_about, business_lga, created_at, updated_at
 `;
 
 export const userRepository = {

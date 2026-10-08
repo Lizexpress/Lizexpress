@@ -175,6 +175,7 @@ export const endpoints = {
     verifyResetCode: (body) => api.post('/auth/verify-reset-code', body),
     resetPassword: (body) => api.post('/auth/reset-password', body),
     changePassword: (body) => api.post('/auth/change-password', body),
+    completeOnboarding: (body) => api.post('/auth/onboarding', body),
   },
   users: {
     me: () => api.get('/users/me'),
@@ -196,6 +197,22 @@ export const endpoints = {
     favorites: (query) => api.list('/items/me/favorites', query),
     uploadImage: (file) => api.upload('/items/upload', file),
     uploadAvatar: (file) => api.upload('/items/upload', file, { query: { folder: 'avatar' } }),
+  },
+  adverts: {
+    search: (query, options) => api.list('/adverts', query, options),
+    detail: (id) => api.get(`/adverts/${id}`),
+    states: () => api.get('/adverts/states'),
+    lgas: (stateCode) => api.get('/adverts/lgas', { query: { stateCode } }),
+    locations: () => api.get('/adverts/locations'),
+    recordContact: (id) => api.post(`/adverts/${id}/contact`),
+    mine: (query) => api.list('/adverts/mine', query),
+    create: (body) => api.post('/adverts', body),
+    update: (id, body) => api.patch(`/adverts/${id}`, body),
+    remove: (id) => api.delete(`/adverts/${id}`),
+    addPhoto: (id, file) => api.upload(`/adverts/${id}/photos`, file, { field: 'photo' }),
+    removePhoto: (photoId) => api.delete(`/adverts/photos/${photoId}`),
+    quote: (id) => api.get(`/adverts/${id}/quote`),
+    checkout: (id) => api.post(`/adverts/${id}/checkout`),
   },
   chats: {
     list: (query) => api.list('/chats', query),
@@ -261,6 +278,10 @@ export const endpoints = {
     feedback: (query) => api.list('/admin/feedback', query),
     updateFeedback: (id, body) => api.patch(`/admin/feedback/${id}`, body),
     auditLog: (query) => api.list('/admin/audit-log', query),
+    adverts: (query) => api.list('/admin/adverts', query),
+    advert: (id) => api.get(`/admin/adverts/${id}`),
+    advertStats: () => api.get('/admin/adverts/stats'),
+    setAdvertStatus: (id, body) => api.patch(`/admin/adverts/${id}/status`, body),
   },
 };
 

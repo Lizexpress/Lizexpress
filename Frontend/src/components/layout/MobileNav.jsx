@@ -1,5 +1,5 @@
 import { SmartNavLink as NavLink } from '../ui/SmartLink.jsx';
-import { Home, Search, PlusCircle, MessageCircle, LayoutDashboard } from 'lucide-react';
+import { Store, Search, PlusCircle, MessageCircle, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useNotifications } from '../../hooks/useNotifications.js';
 import { cn } from '../../lib/cn.js';
@@ -12,13 +12,18 @@ import { cn } from '../../lib/cn.js';
  * above the iOS home indicator via the safe-area inset.
  */
 export const MobileNav = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  // Advertiser-only accounts never list swap items, so the centre action is theirs.
+  const advertiserOnly =
+    user?.account_types?.includes('advertiser') && !user?.account_types?.includes('swapper');
   const { counts } = useNotifications();
 
   const links = [
-    { to: '/', label: 'Home', icon: Home, end: true },
-    { to: '/browse', label: 'Browse', icon: Search },
-    { to: '/list-item', label: 'List', icon: PlusCircle, primary: true },
+    { to: '/browse', label: 'Swap', icon: Search },
+    { to: '/adverts', label: 'Adverts', icon: Store },
+    advertiserOnly
+      ? { to: '/dashboard/adverts/new', label: 'Advertise', icon: PlusCircle, primary: true }
+      : { to: '/list-item', label: 'List', icon: PlusCircle, primary: true },
     { to: '/chats', label: 'Chats', icon: MessageCircle, badge: counts.messages },
     { to: isAuthenticated ? '/dashboard' : '/login', label: isAuthenticated ? 'You' : 'Sign in', icon: LayoutDashboard },
   ];

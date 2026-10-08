@@ -32,6 +32,7 @@ export const StatusBadge = ({ status, size }) => {
     swapped: { tone: 'neutral', label: 'Swapped' },
     suspended: { tone: 'danger', label: 'Removed' },
     archived: { tone: 'muted', label: 'Archived' },
+    expired: { tone: 'muted', label: 'Expired' },
     pending: { tone: 'warning', label: 'Awaiting review' },
     under_review: { tone: 'neutral', label: 'Being reviewed' },
     approved: { tone: 'success', label: 'Approved' },
