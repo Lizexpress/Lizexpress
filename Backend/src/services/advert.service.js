@@ -21,7 +21,7 @@ import { settingsRepository, auditRepository } from '../repositories/admin.repos
 import uploadService from './upload.service.js';
 import { notify } from './notification.service.js';
 import { queueTemplate } from './email.service.js';
-import { BadRequest, NotFound, Forbidden, Conflict } from '../lib/errors.js';
+import { BadRequest, NotFound, Forbidden, Conflict, ServiceUnavailable } from '../lib/errors.js';
 import engagementRepository from '../repositories/engagement.repository.js';
 import { PAYMENT_STATUS, NOTIFICATION_TYPE } from '../config/constants.js';
 import env from '../config/env.js';
@@ -240,7 +240,26 @@ export const checkout = async ({ advertId, userId, email }) => {
   const profile = await userRepository.findById(userId, { full: true });
   const reference = txRef(userId);
 
-  await paymentRepository.create({
+  /**
+   * If the payments table refuses the row, say WHICH rule refused it. The
+   * generic "something went wrong" hid a missing migration for a whole day.
+   * Only the column/rule name is exposed, never data.
+   */
+  const createPayment = (payload) =>
+    paymentRepository.create(payload).catch((error) => {
+      const column = /column "([^"]+)"/.exec(error.message)?.[1];
+      const rule = /constraint "([^"]+)"/.exec(error.message)?.[1];
+      logger.error('advert.checkout.payment_rejected', { advertId, code: error.code, message: error.message });
+      throw ServiceUnavailable('Payments are not available right now. Please try again shortly.', {
+        reason: 'payments_table_rejected_row',
+        dbCode: error.code ?? null,
+        ...(column ? { column } : {}),
+        ...(rule ? { rule } : {}),
+        fix: 'Run migrations 0005 and 0006 in Supabase.',
+      });
+    });
+
+  await createPayment({
     user_id: userId,
     advert_id: advertId,
     tx_ref: reference,

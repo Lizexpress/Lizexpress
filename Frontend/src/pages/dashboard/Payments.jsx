@@ -39,7 +39,7 @@ const Payments = () => {
               {payments.map((payment) => (
                 <tr key={payment.id}>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-ink">{payment.item?.name ?? 'Listing fee'}</p>
+                    <p className="font-medium text-ink">{payment.item?.name ?? (payment.advert ? `Advert: ${payment.advert.title}` : 'Listing fee')}</p>
                     <p className="font-mono text-2xs text-ink-faint">{payment.tx_ref}</p>
                   </td>
                   <td className="px-4 py-3 font-semibold">{money(payment.amount, payment.currency)}</td>

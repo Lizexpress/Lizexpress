@@ -1,36 +1,72 @@
 import { db, unwrap, range, compact } from './base.repository.js';
 import { PAYMENT_STATUS } from '../config/constants.js';
 
-const FIELDS = `
-  id, user_id, item_id, tx_ref, amount, currency, status, flutterwave_transaction_id,
-  flutterwave_reference, payment_method, fee_percentage, item_value, failure_reason,
-  paid_at, created_at, updated_at, purpose, advert_id, photo_count,
-  user:users!payments_user_id_fkey(id, full_name, country),
-  item:items(id, name, estimated_cost)
-`;
+/**
+ * Plain columns only — no embedded joins.
+ *
+ * The old payments table links user_id to Supabase's internal login table, not
+ * to public.users, so an embed like users!payments_user_id_fkey fails with
+ * PGRST200 and takes the whole request (including the insert) down with it.
+ * Related rows are loaded separately in attach(), which works whatever the
+ * table's links look like.
+ */
+const FIELDS = '*';
+
+const byId = (rows) => new Map((rows ?? []).map((row) => [row.id, row]));
+const ids = (rows, key) => [...new Set(rows.map((row) => row[key]).filter(Boolean))];
+
+const attach = async (input) => {
+  const rows = (Array.isArray(input) ? input : [input]).filter(Boolean);
+  if (!rows.length) return input;
+
+  const [users, items, adverts] = await Promise.all([
+    ids(rows, 'user_id').length
+      ? db.from('users').select('id, full_name, country').in('id', ids(rows, 'user_id')).then((res) => res.data)
+      : [],
+    ids(rows, 'item_id').length
+      ? db.from('items').select('id, name, estimated_cost').in('id', ids(rows, 'item_id')).then((res) => res.data)
+      : [],
+    ids(rows, 'advert_id').length
+      ? db.from('adverts').select('id, title, business_name').in('id', ids(rows, 'advert_id')).then((res) => res.data)
+      : [],
+  ]);
+  const userMap = byId(users);
+  const itemMap = byId(items);
+  const advertMap = byId(adverts);
+
+  const out = rows.map((row) => ({
+    ...row,
+    user: userMap.get(row.user_id) ?? null,
+    item: itemMap.get(row.item_id) ?? null,
+    advert: advertMap.get(row.advert_id) ?? null,
+  }));
+  return Array.isArray(input) ? out : out[0];
+};
 
 export const paymentRepository = {
   async create(payload) {
-    return unwrap(await db.from('payments').insert(compact(payload)).select(FIELDS).single(), 'create payment');
+    return attach(unwrap(await db.from('payments').insert(compact(payload)).select(FIELDS).single(), 'create payment'));
   },
 
   async findByTxRef(txRef) {
-    return unwrap(await db.from('payments').select(FIELDS).eq('tx_ref', txRef).maybeSingle(), 'find payment');
+    return attach(unwrap(await db.from('payments').select(FIELDS).eq('tx_ref', txRef).maybeSingle(), 'find payment'));
   },
 
   async findById(id) {
-    return unwrap(await db.from('payments').select(FIELDS).eq('id', id).maybeSingle(), 'find payment');
+    return attach(unwrap(await db.from('payments').select(FIELDS).eq('id', id).maybeSingle(), 'find payment'));
   },
 
   async update(id, payload) {
-    return unwrap(
-      await db
-        .from('payments')
-        .update({ ...compact(payload), updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .select(FIELDS)
-        .single(),
-      'update payment',
+    return attach(
+      unwrap(
+        await db
+          .from('payments')
+          .update({ ...compact(payload), updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .select(FIELDS)
+          .single(),
+        'update payment',
+      ),
     );
   },
 
@@ -47,7 +83,7 @@ export const paymentRepository = {
       await query.order('created_at', { ascending: false }).range(from, to),
       'list payments',
     );
-    return { items: data ?? [], total: count ?? 0, page: safePage, limit: safeLimit };
+    return { items: await attach(data ?? []), total: count ?? 0, page: safePage, limit: safeLimit };
   },
 
   async revenueSummary({ since } = {}) {
@@ -59,14 +95,12 @@ export const paymentRepository = {
   },
 
   async revenueByCountry() {
-    const rows =
+    const rows = await attach(
       unwrap(
-        await db
-          .from('payments')
-          .select('amount, user:users!payments_user_id_fkey(country)')
-          .eq('status', PAYMENT_STATUS.SUCCESSFUL),
+        await db.from('payments').select('amount, user_id').eq('status', PAYMENT_STATUS.SUCCESSFUL),
         'revenue by country',
-      ) ?? [];
+      ) ?? [],
+    );
 
     const tally = new Map();
     for (const row of rows) {
