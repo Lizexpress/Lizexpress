@@ -12,8 +12,9 @@ const TABS = [
   { key: '', label: 'All' },
   { key: 'active', label: 'Live' },
   { key: 'draft', label: 'Drafts' },
+  { key: 'pending_review', label: 'In review' },
   { key: 'pending_payment', label: 'Awaiting payment' },
-  { key: 'expired', label: 'Expired' },
+  { key: 'expired', label: 'Ended' },
 ];
 
 /** What the one action on each row should be, given where the advert is. */
@@ -27,6 +28,13 @@ const nextAction = (advert) => {
       return { label: 'Finish payment', to: `/dashboard/adverts/${advert.id}?step=publish`, primary: true };
     case 'active':
       return { label: 'View', to: `/adverts/${advert.id}` };
+    case 'expired':
+    case 'archived':
+      return Number(advert.amount_paid_kobo) > 0
+        ? { label: 'Renew', to: `/dashboard/adverts/${advert.id}?step=publish`, primary: true }
+        : { label: 'Edit', to: `/dashboard/adverts/${advert.id}` };
+    case 'pending_review':
+      return { label: 'Details', to: `/dashboard/adverts/${advert.id}` };
     default:
       return { label: 'Edit', to: `/dashboard/adverts/${advert.id}` };
   }

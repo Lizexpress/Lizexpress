@@ -10,9 +10,10 @@ const LIST_FIELDS = `
   id, user_id, business_name, title, category, subcategory,
   price_from, price_to, price_note,
   country, state, state_code, lga, city,
-  status, photo_count, published_at, expires_at, view_count, created_at,
+  status, photo_count, amount_due_kobo, amount_paid_kobo,
+  published_at, expires_at, view_count, created_at,
   like_count, save_count, comment_count, share_count, contact_count,
-  photos:advert_photos ( id, url, storage_path, caption, position )
+  photos:advert_photos ( id, url, storage_path, caption, position, is_paid )
 `;
 
 const DETAIL_FIELDS = `
@@ -73,7 +74,9 @@ export const advertRepository = {
     let query = db
       .from('adverts')
       .select(LIST_FIELDS, { count: 'exact' })
-      .eq('status', 'active');
+      .eq('status', 'active')
+      // Hidden the moment its month is up, even before the expiry sweep runs.
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
 
     if (stateCode) query = query.eq('state_code', stateCode);
     else if (state) query = query.ilike('state', state);
@@ -160,6 +163,14 @@ export const advertRepository = {
     return unwrap(
       await db.from('advert_photos').select('id, price_kobo').eq('advert_id', advertId).eq('is_paid', false),
       'list unpaid photos',
+    );
+  },
+
+  /** Every photo with its price: a renewal bills the whole advert again. */
+  async photosForBilling(advertId) {
+    return unwrap(
+      await db.from('advert_photos').select('id, price_kobo').eq('advert_id', advertId),
+      'list advert photos',
     );
   },
 

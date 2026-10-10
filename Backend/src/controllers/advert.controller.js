@@ -103,3 +103,17 @@ export const adminSetStatus = asyncHandler(async (req, res) => {
 export const adminStats = asyncHandler(async (_req, res) => {
   ok(res, await advertService.adminStats());
 });
+
+/**
+ * Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`. Without the secret
+ * set, anyone could trigger it — harmless (it only ends adverts already past
+ * their date), but it is still refused so the endpoint is not an open door.
+ */
+export const cronExpire = asyncHandler(async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || req.get('authorization') !== `Bearer ${secret}`) {
+    return res.status(401).json({ success: false, error: { message: 'Unauthorised.' } });
+  }
+  const ended = await advertService.expireLapsed({ force: true });
+  return ok(res, { ended });
+});

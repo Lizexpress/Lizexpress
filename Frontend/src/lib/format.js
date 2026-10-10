@@ -60,6 +60,7 @@ export const CONDITION_LABELS = {
 export const STATUS_LABELS = {
   draft: 'Draft',
   pending_payment: 'Awaiting payment',
+  pending_review: 'In review',
   active: 'Live',
   swapped: 'Swapped',
   suspended: 'Removed',

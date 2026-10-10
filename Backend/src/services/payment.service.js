@@ -13,7 +13,7 @@
 import paymentRepository from '../repositories/payment.repository.js';
 import itemRepository from '../repositories/item.repository.js';
 import userRepository from '../repositories/user.repository.js';
-import { queueTemplate } from './email.service.js';
+import { deliverTemplate } from './email.service.js';
 import { notify } from './notification.service.js';
 import { adminClient } from '../lib/supabase.js';
 import { sha512Hex, safeEqual } from '../lib/crypto.js';
@@ -108,14 +108,77 @@ const verifyWithFlutterwave = async (transactionId) => {
   return response.json();
 };
 
+const isAdvertPayment = (payment) => Boolean(payment.advert_id) && String(payment.purpose ?? '').startsWith('advert');
+
+const emailOf = async (userId) => {
+  try {
+    const { data } = await adminClient.auth.admin.getUserById(userId);
+    return data?.user?.email ?? null;
+  } catch {
+    return null;
+  }
+};
+
 /**
- * Confirms a payment and publishes the item.
- * Idempotent — the callback and the webhook both land here and the second one
- * is a no-op, which matters because Flutterwave retries webhooks.
+ * Everything that should follow a successful charge. Idempotent: an item that
+ * is already published is left alone, and the advert path recomputes from the
+ * payment records. Runs again when a payment is "already settled", so a
+ * request that died half-way (payment marked paid, listing not published) is
+ * finished by the next callback, webhook retry or page refresh.
+ */
+const completeSuccessful = async ({ payment, method }) => {
+  if (isAdvertPayment(payment)) {
+    return { advert: await advertService.activateAfterPayment({ payment }) };
+  }
+  if (!payment.item_id) return {};
+
+  const current = await itemRepository.findById(payment.item_id);
+  if (!current) return {};
+  if (current.payment_status === 'paid' && current.status !== ITEM_STATUS.PENDING_PAYMENT) return { item: current };
+
+  const item = await itemRepository.update(payment.item_id, {
+    payment_status: 'paid',
+    status: ITEM_STATUS.ACTIVE,
+    published_at: current.published_at ?? new Date().toISOString(),
+  });
+
+  const email = await emailOf(payment.user_id);
+  await notify({
+    userId: payment.user_id,
+    type: NOTIFICATION_TYPE.PAYMENT,
+    title: 'Payment confirmed',
+    content: `"${item.name}" is now live on LizExpress.`,
+    actionUrl: `/items/${item.id}`,
+    email: email
+      ? {
+          always: true,
+          template: 'paymentReceipt',
+          to: email,
+          props: {
+            name: payment.user?.full_name,
+            amount: payment.amount,
+            currency: payment.currency,
+            reference: payment.tx_ref,
+            itemName: item.name,
+            method: method ?? payment.payment_method,
+            paidAt: payment.paid_at ?? new Date().toISOString(),
+          },
+        }
+      : undefined,
+  }).catch((error) => logger.warn('payment.notify_failed', { txRef: payment.tx_ref, error: error.message }));
+
+  return { item };
+};
+
+/**
+ * Confirms a payment and publishes what it paid for.
+ * Idempotent — the callback and the webhook both land here, and Flutterwave
+ * retries webhooks.
  */
 const settle = async ({ payment, flwData }) => {
   if (payment.status === PAYMENT_STATUS.SUCCESSFUL) {
-    return { alreadySettled: true, payment };
+    const follow = await completeSuccessful({ payment });
+    return { alreadySettled: true, payment, ...follow };
   }
 
   const amountMatches = Number(flwData.amount) >= Number(payment.amount);
@@ -123,6 +186,11 @@ const settle = async ({ payment, flwData }) => {
   const chargeSucceeded = flwData.status === 'successful';
 
   if (!chargeSucceeded || !amountMatches || !currencyMatches) {
+    // Bank transfers report "pending" until the money lands; that is not a failure.
+    if (flwData.status === 'pending') {
+      return { settled: false, pending: true, payment };
+    }
+
     const failureReason = !chargeSucceeded
       ? flwData.processor_response || 'Charge was not successful'
       : 'Amount or currency mismatch';
@@ -134,18 +202,19 @@ const settle = async ({ payment, flwData }) => {
     });
 
     if (payment.item_id) await itemRepository.update(payment.item_id, { status: ITEM_STATUS.DRAFT });
-    if (payment.purpose === 'advert_photos' && payment.advert_id) {
-      await advertService.revertAfterFailedPayment({ payment });
+    if (isAdvertPayment(payment)) {
+      await advertService.revertAfterFailedPayment({ payment }).catch(() => {});
     }
 
-    const { data: authUser } = await adminClient.auth.admin.getUserById(payment.user_id);
-    if (authUser?.user?.email) {
-      queueTemplate('paymentFailed', authUser.user.email, {
+    const email = await emailOf(payment.user_id);
+    if (email) {
+      await deliverTemplate('paymentFailed', email, {
         name: payment.user?.full_name,
         amount: payment.amount,
         currency: payment.currency,
         reference: payment.tx_ref,
         reason: failureReason,
+        isAdvert: isAdvertPayment(payment),
       });
     }
 
@@ -161,51 +230,9 @@ const settle = async ({ payment, flwData }) => {
     paid_at: new Date().toISOString(),
   });
 
-  /* Advert payments publish the advert and stop here — the item receipt
-     below would describe a listing fee the customer never paid. */
-  if (payment.purpose === 'advert_photos') {
-    const advert = await advertService.activateAfterPayment({ payment: { ...payment, ...updated } });
-    logger.info('payment.settled', { txRef: payment.tx_ref, amount: payment.amount, purpose: payment.purpose });
-    return { settled: true, payment: updated, advert };
-  }
-
-  let item = null;
-  if (payment.item_id) {
-    item = await itemRepository.update(payment.item_id, {
-      payment_status: 'paid',
-      status: ITEM_STATUS.ACTIVE,
-      published_at: new Date().toISOString(),
-    });
-  }
-
-  const { data: authUser } = await adminClient.auth.admin.getUserById(payment.user_id);
-  const email = authUser?.user?.email;
-
-  await notify({
-    userId: payment.user_id,
-    type: NOTIFICATION_TYPE.PAYMENT,
-    title: 'Payment confirmed',
-    content: item ? `"${item.name}" is now live on LizExpress.` : 'Your listing fee has been received.',
-    actionUrl: item ? `/items/${item.id}` : '/dashboard',
-    email: email
-      ? {
-          template: 'paymentReceipt',
-          to: email,
-          props: {
-            name: payment.user?.full_name,
-            amount: payment.amount,
-            currency: payment.currency,
-            reference: payment.tx_ref,
-            itemName: item?.name ?? 'Listing fee',
-            method: flwData.payment_type,
-            paidAt: new Date().toISOString(),
-          },
-        }
-      : undefined,
-  });
-
-  logger.info('payment.settled', { txRef: payment.tx_ref, amount: payment.amount });
-  return { settled: true, payment: updated, item };
+  const follow = await completeSuccessful({ payment: { ...payment, ...updated }, method: flwData.payment_type });
+  logger.info('payment.settled', { txRef: payment.tx_ref, amount: payment.amount, purpose: payment.purpose ?? 'item_listing' });
+  return { settled: true, payment: updated, ...follow };
 };
 
 /** Called by the client after checkout closes. Verification still happens server-side. */
@@ -227,38 +254,85 @@ export const confirm = async ({ txRef: reference, transactionId, userId }) => {
 
   const outcome = await settle({ payment, flwData: result.data });
   return {
-    status: outcome.settled || outcome.alreadySettled ? 'successful' : 'failed',
+    status: outcome.settled || outcome.alreadySettled ? 'successful' : outcome.pending ? 'pending' : 'failed',
     txRef: reference,
     itemId: payment.item_id,
     advertId: payment.advert_id ?? null,
-    purpose: payment.purpose ?? 'item_listing',
+    // Lets the success screen say "live now" or "appears shortly, after review".
+    advertStatus: outcome.advert?.status ?? null,
+    purpose: payment.purpose ?? (payment.advert_id ? 'advert_photos' : 'item_listing'),
+  };
+};
+
+/** Same check, by our own reference. Used when a webhook carries no transaction id. */
+const verifyByReference = async (reference) => {
+  const response = await fetch(
+    `${env.flutterwave.baseUrl}/transactions/verify_by_reference?tx_ref=${encodeURIComponent(reference)}`,
+    { headers: { Authorization: `Bearer ${env.flutterwave.secretKey}`, 'Content-Type': 'application/json' } },
+  );
+  if (!response.ok) {
+    logger.error('flutterwave.verify_by_reference.http_error', { status: response.status, reference });
+    throw ServiceUnavailable('We could not reach the payment provider.');
+  }
+  return response.json();
+};
+
+/**
+ * Flutterwave sends two shapes depending on the dashboard's webhook version:
+ *   v3:     { event: 'charge.completed', data: { id, tx_ref, status, ... } }
+ *   legacy: { 'event.type': 'BANK_TRANSFER_TRANSACTION', id, txRef, status, ... }
+ */
+const readWebhook = (payload = {}) => {
+  const data = payload.data && typeof payload.data === 'object' ? payload.data : payload;
+  return {
+    event: payload.event ?? payload['event.type'] ?? data.event_type ?? null,
+    txRef: data.tx_ref ?? data.txRef ?? payload.txRef ?? null,
+    transactionId: data.id ?? payload.id ?? null,
   };
 };
 
 /**
- * Webhook handler. Flutterwave signs each call with the hash configured in the
- * dashboard; an unsigned or mismatched call is dropped before any parsing.
+ * Webhook handler.
+ *
+ * The payload is never trusted on its own: every event is re-checked with
+ * Flutterwave's API using our secret key, and the reference must match one of
+ * our payments. That makes the verif-hash header a second check rather than
+ * the only one, so a missing or mismatched hash is logged instead of answered
+ * with 403 — Flutterwave treats any non-200 as "your server is down" and
+ * stops trusting the URL.
  */
 export const handleWebhook = async ({ signature, payload }) => {
   const expected = env.flutterwave.webhookHash;
-  if (!expected || !signature || !safeEqual(signature, expected)) {
-    logger.warn('webhook.rejected', { reason: 'signature mismatch' });
-    throw Forbidden('Invalid webhook signature.');
+  const signed = Boolean(expected && signature && safeEqual(signature, expected));
+  if (!signed) {
+    logger.warn('webhook.unsigned', {
+      reason: !expected ? 'FLUTTERWAVE_WEBHOOK_HASH is not set' : !signature ? 'no verif-hash header' : 'hash mismatch',
+      detail: 'Processed anyway after verifying with Flutterwave. Set the same secret hash in Flutterwave and Vercel.',
+    });
   }
 
-  const { event, data } = payload;
-  if (!['charge.completed', 'transfer.completed'].includes(event)) {
-    return { ignored: true, event };
-  }
+  const { event, txRef, transactionId } = readWebhook(payload);
+  // Payouts we send (transfer.completed) are not customer payments.
+  if (event === 'transfer.completed') return { ignored: true, reason: 'payout event', event };
+  if (!txRef) return { ignored: true, reason: 'no reference', event };
 
-  const payment = await paymentRepository.findByTxRef(data.tx_ref);
+  const payment = await paymentRepository.findByTxRef(txRef);
   if (!payment) {
-    logger.warn('webhook.unknown_txref', { txRef: data.tx_ref });
+    logger.warn('webhook.unknown_txref', { txRef });
     return { ignored: true, reason: 'unknown tx_ref' };
   }
 
-  const outcome = await settle({ payment, flwData: data });
-  return { processed: true, settled: Boolean(outcome.settled || outcome.alreadySettled) };
+  const result = transactionId ? await verifyWithFlutterwave(transactionId) : await verifyByReference(txRef);
+  if (result?.status !== 'success' || !result.data) {
+    return { ignored: true, reason: 'provider could not confirm' };
+  }
+  if (result.data.tx_ref !== txRef) {
+    logger.error('webhook.txref_mismatch', { expected: txRef, received: result.data.tx_ref });
+    return { ignored: true, reason: 'reference mismatch' };
+  }
+
+  const outcome = await settle({ payment, flwData: result.data });
+  return { processed: true, settled: Boolean(outcome.settled || outcome.alreadySettled), signed };
 };
 
 export const history = ({ userId, page, limit }) => paymentRepository.list({ userId, page, limit });

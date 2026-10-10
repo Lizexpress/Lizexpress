@@ -120,6 +120,14 @@ const AdvertEditor = () => {
         {advert && <StatusBadge status={advert.status} />}
       </header>
 
+      {advert?.status === 'pending_review' && (
+        <p className="mt-4 flex items-start gap-2 rounded-lg bg-brand-50 p-4 text-sm text-brand-700">
+          <Icon name="schedule" size="sm" className="mt-0.5 shrink-0" />
+          Payment received. Our team is giving your advert a quick check, and it will appear on the adverts page shortly.
+          We will email you when it is live.
+        </p>
+      )}
+
       {/* The steps are a real sequence, so they are numbered. */}
       <ol className="mt-8 grid grid-cols-3 gap-2" aria-label="Progress">
         {STEPS.map((entry, index) => {
@@ -571,11 +579,17 @@ const PublishStep = ({ advert, onBack }) => {
       </div>
 
       <div>
-        <h2 className="text-lg">Summary</h2>
+        <h2 className="text-lg">{quote?.renewal ? 'Renew for another month' : 'Summary'}</h2>
+        {quote?.renewal && (
+          <p className="mt-2 text-sm text-ink-muted">
+            This advert has ended and is hidden from customers. Pay again and it goes straight back on the adverts page
+            with its photos, likes and comments.
+          </p>
+        )}
         {quote && (
           <dl className="mt-4 divide-y divide-line border-y border-line text-sm">
             <Row label="Photos on this advert" value={quote.photoCount} />
-            <Row label="Photos to pay for" value={quote.billablePhotos} />
+            <Row label={quote.renewal ? 'Photos renewed' : 'Photos to pay for'} value={quote.billablePhotos} />
             <Row label="Price per photo" value={money(quote.unitPrice)} />
             <Row label="Runs for" value={`${quote.durationDays} days`} />
             <div className="flex items-baseline justify-between py-4">
@@ -595,14 +609,18 @@ const PublishStep = ({ advert, onBack }) => {
         {nothingToPay ? (
           <p className="mt-6 rounded-lg bg-success-soft p-4 text-sm text-success">
             Every photo on this advert is paid for.
-            {advert.status === 'active' ? ' Your advert is live.' : ' It will go live as soon as the last payment is confirmed.'}
+            {advert.status === 'active'
+              ? ' Your advert is live.'
+              : advert.status === 'pending_review'
+                ? ' Our team is giving it a quick check, and it will appear on the adverts page shortly.'
+                : ' It will go live as soon as the last payment is confirmed.'}
           </p>
         ) : (
           <div className="mt-6 grid gap-3 sm:flex sm:justify-between">
             <button type="button" className="btn-ghost" onClick={onBack}>Back to photos</button>
             <button type="button" className="btn-accent" onClick={pay} disabled={paying || !quote}>
               <Icon name="lock" size="sm" />
-              {paying ? 'Opening payment…' : `Pay ${money(quote?.total ?? 0)} and publish`}
+              {paying ? 'Opening payment…' : `Pay ${money(quote?.total ?? 0)} and ${quote?.renewal ? 'renew' : 'publish'}`}
             </button>
           </div>
         )}
@@ -626,7 +644,10 @@ const PublishStep = ({ advert, onBack }) => {
             ))}
           </ul>
           <p className="mt-3 text-sm text-ink-muted">
-            Choose your method in the secure Flutterwave window. Your advert goes live as soon as payment is confirmed.
+            Choose your method in the secure Flutterwave window.{' '}
+            {quote?.autoApprove || quote?.renewal
+              ? 'Your advert goes live as soon as payment is confirmed.'
+              : 'After payment, our team gives your advert a quick check and it appears on the adverts page shortly.'}
           </p>
         </div>
       </div>

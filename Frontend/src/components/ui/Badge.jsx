@@ -12,7 +12,7 @@ const TONES = {
 export const Badge = ({ tone = 'neutral', icon: Icon, size = 'md', className, children }) => (
   <span
     className={cn(
-      'inline-flex items-center gap-1 rounded-full border font-semibold',
+      'inline-flex items-center gap-1 whitespace-nowrap rounded-full border font-semibold',
       size === 'sm' ? 'px-2 py-0.5 text-2xs' : 'px-2.5 py-1 text-xs',
       TONES[tone],
       className,
@@ -24,15 +24,21 @@ export const Badge = ({ tone = 'neutral', icon: Icon, size = 'md', className, ch
 );
 
 /** Maps listing status to a tone so the meaning is consistent everywhere. */
-export const StatusBadge = ({ status, size }) => {
-  const config = {
+export const StatusBadge = ({ status, size, kind }) => {
+  // A payment that is "pending" was opened but never completed; for KYC the
+  // same word means it is waiting for a reviewer.
+  const paymentLabels = {
+    pending: { tone: 'muted', label: 'Not completed' },
+  };
+  const labels = {
     active: { tone: 'success', label: 'Live' },
     draft: { tone: 'muted', label: 'Draft' },
     pending_payment: { tone: 'warning', label: 'Awaiting payment' },
+    pending_review: { tone: 'warning', label: 'Awaiting approval' },
     swapped: { tone: 'neutral', label: 'Swapped' },
     suspended: { tone: 'danger', label: 'Removed' },
     archived: { tone: 'muted', label: 'Archived' },
-    expired: { tone: 'muted', label: 'Expired' },
+    expired: { tone: 'muted', label: 'Ended' },
     pending: { tone: 'warning', label: 'Awaiting review' },
     under_review: { tone: 'neutral', label: 'Being reviewed' },
     approved: { tone: 'success', label: 'Approved' },
@@ -41,7 +47,8 @@ export const StatusBadge = ({ status, size }) => {
     successful: { tone: 'success', label: 'Paid' },
     failed: { tone: 'danger', label: 'Failed' },
     refunded: { tone: 'muted', label: 'Refunded' },
-  }[status] ?? { tone: 'muted', label: status };
+  };
+  const config = (kind === 'payment' && paymentLabels[status]) || labels[status] || { tone: 'muted', label: status };
 
   return <Badge tone={config.tone} size={size}>{config.label}</Badge>;
 };

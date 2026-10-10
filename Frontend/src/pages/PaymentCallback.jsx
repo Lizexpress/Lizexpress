@@ -28,6 +28,7 @@ const PaymentCallback = () => {
   // cancelled checkout, where the server is never asked.
   const isAdvert = (txRef ?? '').toUpperCase().startsWith('LXAD-');
   const [advertId, setAdvertId] = useState(null);
+  const [advertStatus, setAdvertStatus] = useState(null);
   const [quote, setQuote] = useState(null);
   const [message, setMessage] = useState('');
   const started = useRef(false);
@@ -46,7 +47,8 @@ const PaymentCallback = () => {
         try {
           const result = await endpoints.payments.confirm({ txRef, transactionId });
           if (result.advertId) setAdvertId(result.advertId);
-          setState(result.status === 'successful' ? 'success' : 'failed');
+          setAdvertStatus(result.advertStatus ?? null);
+          setState(result.status === 'successful' ? 'success' : result.status === 'pending' ? 'pending' : 'failed');
         } catch (error) {
           setState('failed');
           setMessage(error.message);
@@ -96,12 +98,23 @@ const PaymentCallback = () => {
     working: { icon: Loader2, spin: true, tone: 'text-purple-500', title: 'Setting up your payment', copy: 'One moment.' },
     checkout: { icon: Loader2, spin: true, tone: 'text-purple-500', title: 'Complete your payment', copy: 'Finish in the payment window. If it did not open, refresh this page.' },
     success: { icon: CheckCircle2, tone: 'text-success', title: 'Payment confirmed', copy: 'Your listing is now live. We have emailed your receipt.' },
+    pending: {
+      icon: Loader2,
+      spin: true,
+      tone: 'text-purple-500',
+      title: 'Waiting for your bank',
+      copy: 'Bank transfers can take a few minutes to arrive. You do not need to stay on this page: we will email your receipt as soon as it lands.',
+    },
     failed: { icon: XCircle, tone: 'text-danger', title: 'That payment did not complete', copy: message || 'You have not been charged. Your item is saved as a draft.' },
     cancelled: { icon: XCircle, tone: 'text-ink-muted', title: 'Payment cancelled', copy: 'Your item is saved as a draft. You can pay whenever you are ready.' },
   };
 
   if (isAdvert) {
-    PANELS.success.copy = 'Your advert is live. Customers in your area can now find it.';
+    const live = advertStatus === 'active';
+    PANELS.success.title = 'Payment received';
+    PANELS.success.copy = live
+      ? 'Your advert is live. Customers in your area can now find it. We have emailed your receipt.'
+      : 'Your advert will appear on the adverts page shortly, once our team has given it a quick check. We have emailed your receipt and will let you know when it is live.';
     PANELS.failed.copy = message || 'You have not been charged. Your advert is saved; you can pay from My adverts.';
     PANELS.cancelled.copy = 'Your advert is saved. You can pay whenever you are ready.';
   }
@@ -121,21 +134,24 @@ const PaymentCallback = () => {
         </p>
       )}
 
-      {isAdvert && ['success', 'failed', 'cancelled'].includes(state) && (
+      {isAdvert && ['success', 'pending', 'failed', 'cancelled'].includes(state) && (
         <div className="mt-8 flex flex-wrap justify-center gap-2">
-          {state === 'success' && advertId && (
+          {state === 'success' && advertId && advertStatus === 'active' && (
             <Link to={`/adverts/${advertId}`} className="btn-primary">View your advert</Link>
           )}
-          <Link to="/dashboard/adverts" className={state === 'success' ? 'btn-secondary' : 'btn-primary'}>
-            {state === 'success' ? 'My adverts' : 'Back to my adverts'}
+          <Link
+            to="/dashboard/adverts"
+            className={state === 'success' && advertStatus === 'active' ? 'btn-secondary' : 'btn-primary'}
+          >
+            {['success', 'pending'].includes(state) ? 'My adverts' : 'Back to my adverts'}
           </Link>
         </div>
       )}
 
-      {!isAdvert && ['success', 'failed', 'cancelled'].includes(state) && (
+      {!isAdvert && ['success', 'pending', 'failed', 'cancelled'].includes(state) && (
         <div className="mt-7 flex gap-3">
           <Button as={Link} to="/dashboard/listings" variant={state === 'success' ? 'outline' : 'primary'}>
-            {state === 'success' ? 'View my listings' : 'Try again'}
+            {['success', 'pending'].includes(state) ? 'View my listings' : 'Try again'}
           </Button>
           {state === 'success' && <Button as={Link} to="/browse">Browse the marketplace</Button>}
         </div>

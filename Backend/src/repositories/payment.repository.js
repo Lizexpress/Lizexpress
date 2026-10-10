@@ -86,6 +86,17 @@ export const paymentRepository = {
     return { items: await attach(data ?? []), total: count ?? 0, page: safePage, limit: safeLimit };
   },
 
+  /** Successful advert payments, optionally for one advert. Plain rows, no joins. */
+  async successfulForAdverts(advertId) {
+    let query = db
+      .from('payments')
+      .select('id, advert_id, amount, currency, paid_at, created_at, payment_method, tx_ref, photo_count, user_id, purpose')
+      .eq('status', PAYMENT_STATUS.SUCCESSFUL)
+      .not('advert_id', 'is', null);
+    if (advertId) query = query.eq('advert_id', advertId);
+    return unwrap(await query.order('created_at', { ascending: true }).limit(1000), 'list advert payments') ?? [];
+  },
+
   async revenueSummary({ since } = {}) {
     let query = db.from('payments').select('amount, currency, created_at, user_id').eq('status', PAYMENT_STATUS.SUCCESSFUL);
     if (since) query = query.gte('paid_at', since);

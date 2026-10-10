@@ -36,13 +36,13 @@ const AdminPayments = () => {
     { key: 'member', header: 'Member', render: (row) => <span className="text-ink-soft">{row.user?.full_name ?? '—'}</span> },
     { key: 'amount', header: 'Amount', render: (row) => <span className="font-semibold">{money(row.amount, row.currency)}</span> },
     { key: 'method', header: 'Method', render: (row) => <span className="capitalize text-ink-muted">{row.payment_method ?? '—'}</span> },
-    { key: 'status', header: 'Status', render: (row) => <StatusBadge status={row.status} size="sm" /> },
+    { key: 'status', header: 'Status', render: (row) => <StatusBadge status={row.status} size="sm" kind="payment" /> },
     { key: 'date', header: 'Date', render: (row) => <span className="text-ink-muted">{dateTime(row.paid_at ?? row.created_at)}</span> },
   ];
 
   return (
     <>
-      <PageHeader title="Payments" description="Every listing fee, verified server-side against Flutterwave." />
+      <PageHeader title="Payments" description="Every listing fee and advert payment, verified server-side against Flutterwave." />
       <DataTable columns={columns} rows={rows} isLoading={isLoading} meta={meta} onPageChange={setPage} />
     </>
   );

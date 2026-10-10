@@ -44,7 +44,7 @@ const Payments = () => {
                   </td>
                   <td className="px-4 py-3 font-semibold">{money(payment.amount, payment.currency)}</td>
                   <td className="hidden px-4 py-3 text-ink-muted sm:table-cell">{dateTime(payment.paid_at ?? payment.created_at)}</td>
-                  <td className="px-4 py-3"><StatusBadge status={payment.status} size="sm" /></td>
+                  <td className="px-4 py-3"><StatusBadge status={payment.status} size="sm" kind="payment" /></td>
                 </tr>
               ))}
             </tbody>

@@ -15,7 +15,7 @@ import yaml from 'js-yaml';
 
 import env from './config/env.js';
 import routes from './routes/index.js';
-import { webhook } from './controllers/payment.controller.js';
+import { webhook, webhookHealth } from './controllers/payment.controller.js';
 import { requestContext } from './middleware/requestContext.js';
 import { globalLimiter } from './middleware/rateLimit.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
@@ -61,6 +61,7 @@ app.use(
  * verified against the raw bytes. Parsing first would invalidate the check.
  */
 app.post('/api/v1/payments/webhook', express.raw({ type: '*/*' }), webhook);
+app.get('/api/v1/payments/webhook', webhookHealth);
 
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));

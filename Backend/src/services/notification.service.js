@@ -61,8 +61,9 @@ export const notify = async ({
     );
   }
 
-  if (email?.template && wants(profile, 'email', type)) {
-    queueTemplate(email.template, email.to, email.props ?? {});
+  // Receipts (email.always) ignore preferences: a payment needs a record.
+  if (email?.template && email.to && (email.always || wants(profile, 'email', type))) {
+    tasks.push(queueTemplate(email.template, email.to, email.props ?? {}));
   }
 
   await Promise.allSettled(tasks).catch((error) => logger.warn('notify.partial', { error: error.message }));

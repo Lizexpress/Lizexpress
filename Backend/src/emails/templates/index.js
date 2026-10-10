@@ -11,6 +11,12 @@ const money = (amount, currency = 'NGN') =>
     Number(amount || 0),
   );
 
+/** Admin console lives under /admin on the admin host; ADMIN_URL may or may not include it. */
+const adminLink = (path) => {
+  const base = String(env.adminUrl || '').replace(/\/$/, '');
+  return `${/\/admin$/.test(base) ? base : `${base}/admin`}${path}`;
+};
+
 const firstName = (name) => (name ? String(name).trim().split(/\s+/)[0] : 'there');
 
 const p = (text) => `<p style="margin:0 0 16px;">${text}</p>`;
@@ -201,20 +207,138 @@ export const paymentReceipt = ({ name, amount, currency, reference, itemName, me
   text: toPlainText([`Payment confirmed: ${money(amount, currency)}`, `Item: ${itemName}`, `Reference: ${reference}`]),
 });
 
-export const paymentFailed = ({ name, amount, currency, reference, reason }) => ({
-  subject: 'Your listing payment did not go through',
+export const paymentFailed = ({ name, amount, currency, reference, reason, isAdvert }) => ({
+  subject: isAdvert ? 'Your advert payment did not go through' : 'Your listing payment did not go through',
   html: renderLayout({
     preheader: 'The payment failed and your item is still unpublished.',
     eyebrow: 'Payment failed',
     heading: 'That payment did not complete',
     body:
-      p(`Hi ${firstName(name)}, we could not process your listing fee of ${strong(money(amount, currency))}.`) +
+      p(`Hi ${firstName(name)}, we could not process your ${isAdvert ? 'advert payment' : 'listing fee'} of ${strong(money(amount, currency))}.`) +
       (reason ? notice(`<strong>Reason given by the bank:</strong> ${reason}`, 'danger') : '') +
-      p('Your item is saved as a draft — nothing was lost. You have not been charged.') +
-      button('Try payment again', `${env.appUrl}/dashboard/listings`),
+      p(`Your ${isAdvert ? 'advert' : 'item'} is saved as a draft, so nothing was lost. You have not been charged.`) +
+      button('Try payment again', `${env.appUrl}/dashboard/${isAdvert ? 'adverts' : 'listings'}`),
     footNote: `Reference: ${reference}`,
   }),
   text: toPlainText([`Payment of ${money(amount, currency)} failed.`, `Reference: ${reference}`, 'Your item is saved as a draft.']),
+});
+
+/* ─────────────────── Advertising ─────────────────── */
+
+const photoLine = (count) => `${count} photo${Number(count) === 1 ? '' : 's'}`;
+
+/**
+ * Receipt for an advert payment. `live` says whether the advert went straight
+ * up (auto-approve on) or is waiting for a quick check by the team.
+ */
+export const advertPaymentReceipt = ({
+  name, amount, currency, reference, advertTitle, businessName, photoCount, method, paidAt, live, durationDays,
+}) => ({
+  subject: `Receipt: ${money(amount, currency)} for your LizExpress advert`,
+  html: renderLayout({
+    preheader: live ? 'Payment received. Your advert is live.' : 'Payment received. Your advert will appear on the adverts page shortly.',
+    eyebrow: 'Receipt',
+    heading: 'Payment received',
+    body:
+      p(`Thanks ${firstName(name)}, we have received your payment for ${strong(advertTitle)}.`) +
+      (live
+        ? p(`Your advert is now live on the adverts page and will run for ${durationDays} days.`)
+        : notice('Your advert will appear on the adverts page shortly. Our team gives every new advert a quick check first, usually within a few hours. We will email you the moment it is live.', 'neutral')) +
+      detailTable([
+        ['Advert', advertTitle],
+        ...(businessName ? [['Business', businessName]] : []),
+        ['Photos paid for', photoLine(photoCount ?? 1)],
+        ['Amount', money(amount, currency)],
+        ['Method', String(method || 'Card').replace(/_/g, ' ')],
+        ['Reference', reference],
+        ['Date', new Date(paidAt || Date.now()).toUTCString()],
+      ]) +
+      button('View my adverts', `${env.appUrl}/dashboard/adverts`) +
+      p(`<span style="font-size:13px;color:${BRAND.muted};">Keep this email as your receipt. Refunds are governed by our <a href="${env.appUrl}/refund-policy" style="color:${BRAND.purple};">refund policy</a>.</span>`),
+  }),
+  text: toPlainText([
+    `Payment received: ${money(amount, currency)}`,
+    `Advert: ${advertTitle}`,
+    `Reference: ${reference}`,
+    live ? 'Your advert is live.' : 'Your advert will appear on the adverts page shortly, after a quick check by our team.',
+  ]),
+});
+
+export const advertApproved = ({ name, advertTitle, advertId, expiresAt }) => ({
+  subject: `Your advert "${advertTitle}" is live`,
+  html: renderLayout({
+    preheader: 'Customers can now see your advert.',
+    eyebrow: 'Advert live',
+    heading: 'Your advert is live',
+    body:
+      p(`Good news, ${firstName(name)}. ${strong(advertTitle)} passed review and customers near you can now see it on the adverts page.`) +
+      (expiresAt ? detailTable([['Runs until', new Date(expiresAt).toDateString()]]) : '') +
+      button('See your advert', `${env.appUrl}/adverts/${advertId}`) +
+      p(`<span style="font-size:13px;color:${BRAND.muted};">Tip: share the link on WhatsApp and your other channels. Adverts with shares get noticeably more calls.</span>`),
+  }),
+  text: toPlainText([`Your advert "${advertTitle}" is live.`, `${env.appUrl}/adverts/${advertId}`]),
+});
+
+/** Used both when a new advert is not approved and when a live one is paused. */
+export const advertSuspended = ({ name, advertTitle, advertId, reason, wasLive }) => ({
+  subject: wasLive ? `Your advert "${advertTitle}" was paused` : `Your advert "${advertTitle}" needs changes`,
+  html: renderLayout({
+    preheader: wasLive ? 'An administrator paused your advert.' : 'Your advert could not be approved yet.',
+    eyebrow: wasLive ? 'Advert paused' : 'Advert not approved',
+    heading: wasLive ? 'Your advert was paused' : 'Your advert needs changes',
+    body:
+      p(
+        wasLive
+          ? `Hi ${firstName(name)}, our team paused ${strong(advertTitle)}, so it is no longer shown on the adverts page.`
+          : `Hi ${firstName(name)}, our team reviewed ${strong(advertTitle)} but could not approve it yet.`,
+      ) +
+      (reason ? notice(`<strong>Reason:</strong> ${reason}`, 'warning') : '') +
+      p('Reply to this email or contact support and we will help you sort it out. Your payment is kept on record against this advert.') +
+      button('Open the advert', `${env.appUrl}/dashboard/adverts/${advertId}`),
+  }),
+  text: toPlainText([
+    wasLive ? `Your advert "${advertTitle}" was paused.` : `Your advert "${advertTitle}" could not be approved yet.`,
+    reason ? `Reason: ${reason}` : '',
+    'Reply to this email for help.',
+  ]),
+});
+
+export const advertExpired = ({ name, advertTitle, advertId, renewAmount }) => ({
+  subject: `Your advert "${advertTitle}" has ended. Renew it?`,
+  html: renderLayout({
+    preheader: 'Your month is up. Renew to put it back on the adverts page.',
+    eyebrow: 'Advert ended',
+    heading: 'Your advert has finished its month',
+    body:
+      p(`Hi ${firstName(name)}, ${strong(advertTitle)} has run for its full month and is no longer shown on the adverts page.`) +
+      p('Nothing is lost. Your photos, details, likes and comments are kept, and you can put it back up for another month in one step.') +
+      (renewAmount ? detailTable([['Renewal', `${money(renewAmount)} for 30 more days`]]) : '') +
+      button('Renew my advert', `${env.appUrl}/dashboard/adverts/${advertId}?step=publish`),
+  }),
+  text: toPlainText([
+    `Your advert "${advertTitle}" has ended.`,
+    `Renew it: ${env.appUrl}/dashboard/adverts/${advertId}?step=publish`,
+  ]),
+});
+
+export const adminAdvertReview = ({ advertTitle, businessName, ownerName, amount, currency, location, advertId }) => ({
+  subject: `New paid advert to approve: ${advertTitle}`,
+  html: renderLayout({
+    preheader: `${businessName || ownerName} paid ${money(amount, currency)}.`,
+    eyebrow: 'Admin',
+    heading: 'An advert is waiting for approval',
+    body:
+      p('A customer has paid for an advert. It goes live once someone approves it.') +
+      detailTable([
+        ['Advert', advertTitle],
+        ['Business', businessName || '—'],
+        ['Advertiser', ownerName || '—'],
+        ['Location', location || '—'],
+        ['Paid', money(amount, currency)],
+      ]) +
+      button('Review adverts', adminLink(`/adverts?status=pending_review&open=${advertId}`), 'secondary'),
+  }),
+  text: toPlainText([`New paid advert to approve: ${advertTitle}`, adminLink('/adverts')]),
 });
 
 /* ─────────────────── Marketplace activity ─────────────────── */
@@ -290,7 +414,7 @@ export const adminVerificationQueue = ({ pendingCount, oldestWaitingHours }) => 
       detailTable([
         ['Pending submissions', String(pendingCount)],
         ['Longest wait', `${oldestWaitingHours} hours`],
-      ]) + button('Open review queue', `${env.adminUrl}/verifications`, 'secondary'),
+      ]) + button('Open review queue', adminLink('/verifications'), 'secondary'),
   }),
   text: toPlainText([`${pendingCount} verifications pending. Oldest waiting ${oldestWaitingHours}h.`]),
 });
@@ -324,6 +448,11 @@ export default {
   verificationRejected,
   paymentReceipt,
   paymentFailed,
+  advertPaymentReceipt,
+  advertApproved,
+  advertSuspended,
+  advertExpired,
+  adminAdvertReview,
   itemPublished,
   newMessage,
   swapOffer,

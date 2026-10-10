@@ -66,14 +66,14 @@ export const advertSchemas = {
   }),
 
   mine: pagination.extend({
-    status: z.enum(['draft', 'pending_payment', 'active', 'expired', 'suspended', 'archived']).optional(),
+    status: z.enum(['draft', 'pending_payment', 'pending_review', 'active', 'expired', 'suspended', 'archived']).optional(),
   }),
 
   lgaQuery: z.object({ stateCode: z.string().trim().length(2, 'Choose a state.') }),
 
   adminList: pagination.extend({
     status: z
-      .enum(['all', 'draft', 'pending_payment', 'active', 'expired', 'suspended', 'archived'])
+      .enum(['all', 'draft', 'pending_payment', 'pending_review', 'active', 'expired', 'suspended', 'archived'])
       .default('all'),
     state: z.string().trim().max(80).optional(),
     search: z.string().trim().max(80).optional(),

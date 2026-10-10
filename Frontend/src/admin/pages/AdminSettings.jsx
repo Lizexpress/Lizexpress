@@ -13,10 +13,12 @@ const FIELDS = [
   ['minimum_listing_fee', 'Minimum listing fee (NGN)', 'number', 'Floor applied to low-value items.'],
   ['max_images_per_item', 'Maximum photos per listing', 'number', ''],
   ['payment_currency', 'Currency', 'text', ''],
+  ['advert_duration_days', 'Advert run (days)', 'number', 'How long an approved advert stays on the adverts page.'],
 ];
 
 const TOGGLES = [
   ['require_kyc_to_list', 'Require identity verification to list', 'When off, unverified members can publish listings.'],
+  ['advert_auto_approve', 'Publish adverts as soon as they are paid', 'When off, paid adverts wait in Adverts → Needs approval until an admin approves them.'],
   ['maintenance_mode', 'Maintenance mode', 'Shows a maintenance notice to everyone except staff.'],
 ];
 

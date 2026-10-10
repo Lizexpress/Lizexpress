@@ -24,6 +24,14 @@ export const Modal = ({ open, onClose, title, description, size = 'md', footer, 
   const panelRef = useRef(null);
   const previouslyFocused = useRef(null);
 
+  // Parents usually pass an inline arrow, which is a new function on every
+  // render. If the effect below depended on it, every keystroke in a field
+  // inside the modal would tear the effect down, hand focus back to the button
+  // that opened it, and you could type exactly one character. Read it from a
+  // ref instead, so the effect runs once per open.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return undefined;
 
@@ -33,7 +41,7 @@ export const Modal = ({ open, onClose, title, description, size = 'md', footer, 
 
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
       if (event.key !== 'Tab' || !panelRef.current) return;
@@ -63,7 +71,7 @@ export const Modal = ({ open, onClose, title, description, size = 'md', footer, 
       document.body.style.overflow = overflow;
       previouslyFocused.current?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -71,7 +79,7 @@ export const Modal = ({ open, onClose, title, description, size = 'md', footer, 
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
       <div
         className="absolute inset-0 bg-purple-900/45 backdrop-blur-[2px] animate-fade-up"
-        onClick={onClose}
+        onClick={() => onCloseRef.current?.()}
         aria-hidden="true"
       />
 

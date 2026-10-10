@@ -14,6 +14,9 @@ router.get('/states', controller.states);
 router.get('/lgas', validate({ query: advertSchemas.lgaQuery }), controller.lgas);
 router.get('/locations', controller.locations);
 
+/* ── Daily expiry sweep, called by Vercel Cron (see vercel.json). ── */
+router.get('/cron/expire', controller.cronExpire);
+
 /* ── Browse (public) ── */
 router.get('/', validate({ query: advertSchemas.search }), controller.search);
 
