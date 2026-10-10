@@ -110,7 +110,7 @@ export const adminStats = asyncHandler(async (_req, res) => {
  * their date), but it is still refused so the endpoint is not an open door.
  */
 export const cronExpire = asyncHandler(async (req, res) => {
-  const secret = process.env.CRON_SECRET;
+  const secret = process.env.CRON_SECRET?.trim();
   if (!secret || req.get('authorization') !== `Bearer ${secret}`) {
     return res.status(401).json({ success: false, error: { message: 'Unauthorised.' } });
   }

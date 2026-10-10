@@ -73,7 +73,7 @@ export const env = {
     publicKey: process.env.FLUTTERWAVE_PUBLIC_KEY,
     secretKey: process.env.FLUTTERWAVE_SECRET_KEY,
     encryptionKey: process.env.FLUTTERWAVE_ENCRYPTION_KEY,
-    webhookHash: process.env.FLUTTERWAVE_WEBHOOK_HASH,
+    webhookHash: process.env.FLUTTERWAVE_WEBHOOK_HASH?.trim(),
     baseUrl: 'https://api.flutterwave.com/v3',
   },
 
