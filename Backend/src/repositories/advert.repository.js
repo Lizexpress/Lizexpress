@@ -29,6 +29,8 @@ const DETAIL_FIELDS = `
   photos:advert_photos ( id, url, storage_path, caption, position, is_paid )
 `;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const advertRepository = {
   async create(payload) {
     return unwrap(
@@ -178,7 +180,10 @@ export const advertRepository = {
     unwrap(
       await db
         .from('advert_photos')
-        .update({ is_paid: true, payment_id: paymentId })
+        // The original payments table numbers its rows (1, 2, 3…) while
+        // advert_photos.payment_id is a uuid. Only link when the id fits; the
+        // payment itself stays traceable through payments.advert_id.
+        .update({ is_paid: true, ...(UUID.test(String(paymentId ?? '')) ? { payment_id: paymentId } : {}) })
         .eq('advert_id', advertId)
         .eq('is_paid', false),
       'mark photos paid',
