@@ -44,14 +44,26 @@ const PaymentCallback = () => {
           setState('cancelled');
           return;
         }
-        try {
-          const result = await endpoints.payments.confirm({ txRef, transactionId });
-          if (result.advertId) setAdvertId(result.advertId);
-          setAdvertStatus(result.advertStatus ?? null);
-          setState(result.status === 'successful' ? 'success' : result.status === 'pending' ? 'pending' : 'failed');
-        } catch (error) {
-          setState('failed');
-          setMessage(error.message);
+        // Bank transfers take a minute or two to register with Flutterwave, so
+        // "pending" (and a brief provider hiccup) means check again, not fail.
+        // About three minutes of checks, then the page says the receipt will
+        // follow by email: the server keeps checking after the page closes.
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          try {
+            const result = await endpoints.payments.confirm({ txRef, transactionId });
+            if (result.advertId) setAdvertId(result.advertId);
+            setAdvertStatus(result.advertStatus ?? null);
+            if (result.status === 'successful') return setState('success');
+            if (result.status === 'failed') return setState('failed');
+            setState('pending');
+          } catch (error) {
+            if (error.status && error.status < 500) {
+              setMessage(error.message);
+              return setState('failed');
+            }
+            setState('pending');
+          }
+          await new Promise((resolve) => setTimeout(resolve, 9000));
         }
         return;
       }
@@ -102,8 +114,8 @@ const PaymentCallback = () => {
       icon: Loader2,
       spin: true,
       tone: 'text-purple-500',
-      title: 'Waiting for your bank',
-      copy: 'Bank transfers can take a few minutes to arrive. You do not need to stay on this page: we will email your receipt as soon as it lands.',
+      title: 'Confirming your transfer',
+      copy: 'Bank transfers can take a few minutes to arrive. Keep this page open, or close it: we keep checking and will email your receipt as soon as the money lands. Please do not pay twice.',
     },
     failed: { icon: XCircle, tone: 'text-danger', title: 'That payment did not complete', copy: message || 'You have not been charged. Your item is saved as a draft.' },
     cancelled: { icon: XCircle, tone: 'text-ink-muted', title: 'Payment cancelled', copy: 'Your item is saved as a draft. You can pay whenever you are ready.' },

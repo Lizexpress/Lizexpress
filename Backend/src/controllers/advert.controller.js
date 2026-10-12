@@ -3,6 +3,7 @@
  * No business rules and no database access live here.
  */
 import advertService from '../services/advert.service.js';
+import paymentService from '../services/payment.service.js';
 import { ok, created, paginated } from '../lib/response.js';
 import { asyncHandler } from '../lib/errors.js';
 import { requestContext as context } from '../lib/clientIp.js';
@@ -49,6 +50,7 @@ export const remove = asyncHandler(async (req, res) => {
 });
 
 export const mine = asyncHandler(async (req, res) => {
+  await paymentService.syncPending({ userId: req.auth.id });
   const { items, total, page, limit } = await advertService.mine({ userId: req.auth.id, ...req.validatedQuery });
   paginated(res, items, { page, limit, total });
 });
@@ -101,6 +103,7 @@ export const adminSetStatus = asyncHandler(async (req, res) => {
 });
 
 export const adminStats = asyncHandler(async (_req, res) => {
+  await paymentService.syncPending();
   ok(res, await advertService.adminStats());
 });
 

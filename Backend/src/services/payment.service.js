@@ -92,20 +92,43 @@ export const initialise = async ({ itemId, userId, email }) => {
   };
 };
 
-/** Server-to-server verification against Flutterwave. The only source of truth. */
-const verifyWithFlutterwave = async (transactionId) => {
-  const response = await fetch(`${env.flutterwave.baseUrl}/transactions/${transactionId}/verify`, {
-    headers: {
-      Authorization: `Bearer ${env.flutterwave.secretKey}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    logger.error('flutterwave.verify.http_error', { status: response.status, transactionId });
-    throw ServiceUnavailable('We could not reach the payment provider. Your card has not been charged twice.');
+/**
+ * Server-to-server lookups against Flutterwave — the only source of truth.
+ *
+ * A 4xx means "Flutterwave has no such transaction yet", which is normal for a
+ * bank transfer in its first minutes: the customer is redirected back before
+ * the transfer is registered. That returns null (try again later), never an
+ * error. Only network failures and 5xx count as "unreachable".
+ */
+const flwGet = async (path, context) => {
+  let response;
+  try {
+    response = await fetch(`${env.flutterwave.baseUrl}${path}`, {
+      headers: { Authorization: `Bearer ${env.flutterwave.secretKey}`, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    logger.error('flutterwave.unreachable', { ...context, error: error.message });
+    throw ServiceUnavailable('We could not reach the payment provider. You have not been charged twice.');
   }
-  return response.json();
+  if (response.status >= 500) {
+    logger.error('flutterwave.http_error', { ...context, status: response.status });
+    throw ServiceUnavailable('The payment provider is not responding. You have not been charged twice.');
+  }
+  const body = await response.json().catch(() => null);
+  if (!response.ok || body?.status !== 'success' || !body?.data) {
+    logger.warn('flutterwave.not_found_yet', { ...context, status: response.status, message: body?.message });
+    return null;
+  }
+  return body.data;
+};
+
+/** Finds the charge by Flutterwave's id, falling back to our own reference. */
+const lookupCharge = async ({ reference, transactionId }) => {
+  if (transactionId) {
+    const byId = await flwGet(`/transactions/${encodeURIComponent(transactionId)}/verify`, { transactionId, reference });
+    if (byId) return byId;
+  }
+  return flwGet(`/transactions/verify_by_reference?tx_ref=${encodeURIComponent(reference)}`, { reference });
 };
 
 const isAdvertPayment = (payment) => Boolean(payment.advert_id) && String(payment.purpose ?? '').startsWith('advert');
@@ -241,40 +264,76 @@ export const confirm = async ({ txRef: reference, transactionId, userId }) => {
   if (!payment) throw NotFound('We could not find that payment.');
   if (userId && payment.user_id !== userId) throw Forbidden('This payment does not belong to you.');
 
-  const result = await verifyWithFlutterwave(transactionId);
-  if (result.status !== 'success') {
-    throw BadRequest('The payment provider could not confirm this transaction.');
-  }
-
-  // Guard against a spoofed transactionId pointing at someone else's charge.
-  if (result.data.tx_ref !== reference) {
-    logger.error('payment.txref_mismatch', { expected: reference, received: result.data.tx_ref });
-    throw BadRequest('This transaction does not match the payment record.');
-  }
-
-  const outcome = await settle({ payment, flwData: result.data });
-  return {
-    status: outcome.settled || outcome.alreadySettled ? 'successful' : outcome.pending ? 'pending' : 'failed',
+  const base = {
     txRef: reference,
     itemId: payment.item_id,
     advertId: payment.advert_id ?? null,
+    purpose: payment.purpose ?? (payment.advert_id ? 'advert_photos' : 'item_listing'),
+  };
+
+  // Already settled by the webhook or an earlier check.
+  if (payment.status === PAYMENT_STATUS.SUCCESSFUL) {
+    const outcome = await settle({ payment, flwData: {} });
+    return { ...base, status: 'successful', advertStatus: outcome.advert?.status ?? null };
+  }
+
+  const charge = await lookupCharge({ reference, transactionId });
+  // Not registered yet (bank transfers take a minute or two): the page waits.
+  if (!charge) return { ...base, status: 'pending', advertStatus: null };
+
+  // Guard against a spoofed transactionId pointing at someone else's charge.
+  if (charge.tx_ref !== reference) {
+    logger.error('payment.txref_mismatch', { expected: reference, received: charge.tx_ref });
+    throw BadRequest('This transaction does not match the payment record.');
+  }
+
+  const outcome = await settle({ payment, flwData: charge });
+  return {
+    ...base,
+    status: outcome.settled || outcome.alreadySettled ? 'successful' : outcome.pending ? 'pending' : 'failed',
     // Lets the success screen say "live now" or "appears shortly, after review".
     advertStatus: outcome.advert?.status ?? null,
-    purpose: payment.purpose ?? (payment.advert_id ? 'advert_photos' : 'item_listing'),
   };
 };
 
-/** Same check, by our own reference. Used when a webhook carries no transaction id. */
-const verifyByReference = async (reference) => {
-  const response = await fetch(
-    `${env.flutterwave.baseUrl}/transactions/verify_by_reference?tx_ref=${encodeURIComponent(reference)}`,
-    { headers: { Authorization: `Bearer ${env.flutterwave.secretKey}`, 'Content-Type': 'application/json' } },
-  );
-  if (!response.ok) {
-    logger.error('flutterwave.verify_by_reference.http_error', { status: response.status, reference });
-    throw ServiceUnavailable('We could not reach the payment provider.');
+/**
+ * Settles payments left "pending" because the customer closed the page before
+ * a bank transfer registered and no webhook arrived. Checks each with
+ * Flutterwave by reference. Runs when a customer opens their adverts or
+ * payments, and when an admin opens the adverts or payments screens.
+ */
+let lastGlobalSync = 0;
+export const syncPending = async ({ userId } = {}) => {
+  if (!userId) {
+    if (Date.now() - lastGlobalSync < 2 * 60_000) return 0;
+    lastGlobalSync = Date.now();
   }
-  return response.json();
+  try {
+    const since = new Date(Date.now() - 3 * 86_400_000).toISOString();
+    let query = adminClient
+      .from('payments')
+      .select('*')
+      .eq('status', PAYMENT_STATUS.PENDING)
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(userId ? 5 : 15);
+    if (userId) query = query.eq('user_id', userId);
+    const { data: rows } = await query;
+
+    let settled = 0;
+    for (const row of rows ?? []) {
+      const charge = await lookupCharge({ reference: row.tx_ref, transactionId: row.flutterwave_transaction_id || null }).catch(() => null);
+      if (!charge || charge.tx_ref !== row.tx_ref || charge.status === 'pending') continue;
+      const payment = await paymentRepository.findById(row.id);
+      const outcome = await settle({ payment, flwData: charge });
+      if (outcome.settled) settled += 1;
+    }
+    if (settled) logger.info('payment.sync_pending', { settled });
+    return settled;
+  } catch (error) {
+    logger.warn('payment.sync_pending.failed', { error: error.message });
+    return 0;
+  }
 };
 
 /**
@@ -322,16 +381,14 @@ export const handleWebhook = async ({ signature, payload }) => {
     return { ignored: true, reason: 'unknown tx_ref' };
   }
 
-  const result = transactionId ? await verifyWithFlutterwave(transactionId) : await verifyByReference(txRef);
-  if (result?.status !== 'success' || !result.data) {
-    return { ignored: true, reason: 'provider could not confirm' };
-  }
-  if (result.data.tx_ref !== txRef) {
-    logger.error('webhook.txref_mismatch', { expected: txRef, received: result.data.tx_ref });
+  const charge = await lookupCharge({ reference: txRef, transactionId });
+  if (!charge) return { ignored: true, reason: 'provider could not confirm yet' };
+  if (charge.tx_ref !== txRef) {
+    logger.error('webhook.txref_mismatch', { expected: txRef, received: charge.tx_ref });
     return { ignored: true, reason: 'reference mismatch' };
   }
 
-  const outcome = await settle({ payment, flwData: result.data });
+  const outcome = await settle({ payment, flwData: charge });
   return { processed: true, settled: Boolean(outcome.settled || outcome.alreadySettled), signed };
 };
 
@@ -347,4 +404,4 @@ export const receipt = async ({ txRef: reference, userId }) => {
 /** Webhook-driven signature check needs the raw body, so expose the hasher too. */
 export const hashPayload = (raw) => sha512Hex(raw);
 
-export default { calculateFee, quote, initialise, confirm, handleWebhook, history, receipt };
+export default { calculateFee, quote, initialise, confirm, handleWebhook, history, receipt, syncPending };

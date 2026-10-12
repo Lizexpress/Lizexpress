@@ -19,6 +19,7 @@ export const confirm = asyncHandler(async (req, res) =>
 );
 
 export const history = asyncHandler(async (req, res) => {
+  await paymentService.syncPending({ userId: req.auth.id });
   const { items, total, page, limit } = await paymentService.history({
     userId: req.auth.id,
     ...req.validatedQuery,

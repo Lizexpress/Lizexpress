@@ -1,4 +1,5 @@
 import adminService from '../services/admin.service.js';
+import paymentService from '../services/payment.service.js';
 import { feedbackRepository } from '../repositories/admin.repository.js';
 import { ok, created, paginated, noContent } from '../lib/response.js';
 import { asyncHandler } from '../lib/errors.js';
@@ -49,7 +50,10 @@ export const setItemStatus = asyncHandler(async (req, res) =>
   ok(res, await adminService.setItemStatus({ id: req.params.id, actorId: req.auth.id, ...req.body, request: context(req) })),
 );
 
-export const listPayments = asyncHandler(async (req, res) => page(res, await adminService.listPayments(req.validatedQuery)));
+export const listPayments = asyncHandler(async (req, res) => {
+  await paymentService.syncPending();
+  return page(res, await adminService.listPayments(req.validatedQuery));
+});
 export const recentMessages = asyncHandler(async (req, res) => ok(res, await adminService.recentMessages(50)));
 
 /* Tasks */
