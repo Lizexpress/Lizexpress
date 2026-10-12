@@ -8,6 +8,7 @@
  *   • de-duplicates concurrent refreshes so a burst of 401s triggers one call
  *   • aborts in-flight requests on demand (used by search-as-you-type)
  */
+import { compressImage } from './compressImage.js';
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1';
 const ACCESS_KEY = 'lx.accessToken';
@@ -152,9 +153,10 @@ export const api = {
   /** Returns { data, meta } for paginated endpoints. */
   list: (path, query, options) => request(path, { ...options, method: 'GET', query, raw: true }),
 
-  upload: (path, file, { field = 'file', query } = {}) => {
+  upload: async (path, file, { field = 'file', query, compress = true } = {}) => {
     const form = new FormData();
-    form.append(field, file);
+    // Photos are shrunk on the phone first: faster uploads, faster pages.
+    form.append(field, compress ? await compressImage(file) : file);
     return request(path, { method: 'POST', body: form, query });
   },
 };
@@ -238,7 +240,7 @@ export const endpoints = {
   verifications: {
     status: () => api.get('/verifications/me'),
     submit: (body) => api.post('/verifications', body),
-    uploadDocument: (kind, file) => api.upload(`/verifications/documents/${kind}`, file),
+    uploadDocument: (kind, file) => api.upload(`/verifications/documents/${kind}`, file, { compress: false }),
   },
   payments: {
     quote: (itemId) => api.get(`/payments/quote/${itemId}`),
@@ -296,6 +298,7 @@ export const endpoints = {
     advert: (id) => api.get(`/admin/adverts/${id}`),
     advertStats: () => api.get('/admin/adverts/stats'),
     setAdvertStatus: (id, body) => api.patch(`/admin/adverts/${id}/status`, body),
+    optimiseMedia: () => api.post('/admin/media/optimise'),
   },
 };
 

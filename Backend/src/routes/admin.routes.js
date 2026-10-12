@@ -84,6 +84,7 @@ router.delete('/tasks/:id', validate({ params: adminSchemas.idParam }), controll
 
 /* Settings, feedback, audit */
 router.get('/settings', controller.settings);
+router.post('/media/optimise', requireAdmin(USER_ROLE.ADMIN, USER_ROLE.SUPER_ADMIN), controller.optimiseMedia);
 router.put('/settings', requireAdmin(USER_ROLE.ADMIN, USER_ROLE.SUPER_ADMIN), validate({ body: adminSchemas.setting }), controller.updateSetting);
 router.get('/feedback', validate({ query: adminSchemas.feedback }), controller.listFeedback);
 router.patch('/feedback/:id', validate({ params: adminSchemas.idParam }), controller.updateFeedback);

@@ -22,6 +22,44 @@ const TOGGLES = [
   ['maintenance_mode', 'Maintenance mode', 'Shows a maintenance notice to everyone except staff.'],
 ];
 
+/** Shrinks old, full-size photos in batches until none are left. */
+const OptimisePhotos = () => {
+  const toast = useToast();
+  const [running, setRunning] = useState(false);
+  const [total, setTotal] = useState(0);
+  const run = async () => {
+    setRunning(true);
+    let count = 0;
+    try {
+      for (let round = 0; round < 60; round += 1) {
+        const result = await endpoints.admin.optimiseMedia();
+        count += result.done ?? 0;
+        setTotal(count);
+        if (!result.more) break;
+      }
+      toast.success(count ? `${count} photos made smaller. Pages will load faster.` : 'All photos are already optimised.');
+    } catch (error) {
+      toast.error(error.message);
+    } finally {
+      setRunning(false);
+    }
+  };
+  return (
+    <Card className="mt-6">
+      <CardHeader title="Photo speed" />
+      <CardBody>
+        <p className="text-sm text-ink-soft">
+          New photos are shrunk automatically. Run this once to shrink photos uploaded before, so adverts and listings
+          load quickly. Keep this page open until it finishes.
+        </p>
+        <button type="button" className="btn-primary btn-sm mt-4" disabled={running} onClick={run}>
+          {running ? `Optimising… ${total} done` : 'Optimise existing photos'}
+        </button>
+      </CardBody>
+    </Card>
+  );
+};
+
 const AdminSettings = () => {
   const { isSuperAdmin } = useAuth();
   const toast = useToast();
@@ -105,6 +143,7 @@ const AdminSettings = () => {
           </CardBody>
         </Card>
       </div>
+      <OptimisePhotos />
     </>
   );
 };

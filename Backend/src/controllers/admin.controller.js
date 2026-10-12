@@ -1,5 +1,6 @@
 import adminService from '../services/admin.service.js';
 import paymentService from '../services/payment.service.js';
+import uploadService from '../services/upload.service.js';
 import { feedbackRepository } from '../repositories/admin.repository.js';
 import { ok, created, paginated, noContent } from '../lib/response.js';
 import { asyncHandler } from '../lib/errors.js';
@@ -82,3 +83,6 @@ export const auditLog = asyncHandler(async (req, res) => page(res, await adminSe
 
 /* Public testimonials source */
 export const testimonials = asyncHandler(async (_req, res) => ok(res, await feedbackRepository.testimonials(12)));
+
+/* Shrinks photos uploaded before optimisation existed; one batch per call. */
+export const optimiseMedia = asyncHandler(async (_req, res) => ok(res, await uploadService.optimiseExisting()));

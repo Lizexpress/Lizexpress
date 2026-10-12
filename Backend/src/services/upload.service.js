@@ -11,6 +11,44 @@ import { adminClient } from '../lib/supabase.js';
 import { BadRequest } from '../lib/errors.js';
 import env from '../config/env.js';
 import crypto from 'node:crypto';
+import logger from '../lib/logger.js';
+
+/**
+ * Photo shrinking. Phones upload 3–8 MB photos; customers then downloaded the
+ * full file just to see a card, which is why adverts loaded slowly. Every
+ * photo is resized to at most 1600px and saved as a progressive JPEG (~150–400
+ * KB). sharp is loaded lazily so a missing native build degrades to "store the
+ * original" instead of breaking uploads.
+ */
+const OPTIMISED_SUFFIX = '.o.jpg';
+let sharpModule;
+const loadSharp = async () => {
+  if (sharpModule === undefined) {
+    try {
+      sharpModule = (await import('sharp')).default;
+    } catch (error) {
+      logger.warn('upload.sharp_unavailable', { error: error.message });
+      sharpModule = null;
+    }
+  }
+  return sharpModule;
+};
+
+export const optimiseImage = async (buffer) => {
+  const sharp = await loadSharp();
+  if (!sharp) return null;
+  try {
+    return await sharp(buffer, { failOn: 'none' })
+      .rotate() // respect the phone's orientation flag
+      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+      .flatten({ background: '#ffffff' })
+      .jpeg({ quality: 80, progressive: true, mozjpeg: true })
+      .toBuffer();
+  } catch (error) {
+    logger.warn('upload.optimise_failed', { error: error.message });
+    return null;
+  }
+};
 
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
 const DOCUMENT_TYPES = [...IMAGE_TYPES, 'application/pdf'];
@@ -48,7 +86,10 @@ const put = async (bucket, path, file) => {
 export const uploadImage = async ({ userId, file, folder = 'items' }) => {
   assertFile(file, { allowed: IMAGE_TYPES, maxBytes: MAX_IMAGE_BYTES, label: 'Image' });
 
-  const path = `${folder}/${userId}/${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${extensionFor(file.mimetype)}`;
+  const optimised = await optimiseImage(file.buffer);
+  if (optimised) file = { ...file, buffer: optimised, mimetype: 'image/jpeg', size: optimised.length };
+  const stem = `${folder}/${userId}/${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
+  const path = optimised ? `${stem}${OPTIMISED_SUFFIX}` : `${stem}.${extensionFor(file.mimetype)}`;
   // Photos go to the PUBLIC bucket. Writing them to the private KYC bucket gave
   // every new photo a public link that the bucket then refused — the broken
   // image on new adverts and listings.
@@ -57,7 +98,87 @@ export const uploadImage = async ({ userId, file, folder = 'items' }) => {
   await put(bucket, path, file);
 
   const { data } = adminClient.storage.from(bucket).getPublicUrl(path);
-  return { path, url: data.publicUrl, bucket };
+  return { path, url: data.publicUrl, bucket, bytes: file.size };
+};
+
+/* ───────── Shrinking photos uploaded before optimisation existed ───────── */
+
+const storageRef = (url) => {
+  const match = /\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/([^?]+)/.exec(String(url ?? ''));
+  return match ? { bucket: match[1], path: decodeURIComponent(match[2]) } : null;
+};
+
+const reencode = async ({ bucket, path }) => {
+  const { data: blob, error } = await adminClient.storage.from(bucket).download(path);
+  if (error || !blob) throw new Error(`download ${bucket}/${path}: ${error?.message ?? 'empty'}`);
+  const optimised = await optimiseImage(Buffer.from(await blob.arrayBuffer()));
+  if (!optimised) throw new Error('could not optimise');
+  const target = path.replace(/\.[a-z0-9]+$/i, '') + OPTIMISED_SUFFIX;
+  const { error: upErr } = await adminClient.storage
+    .from(env.supabase.publicBucket)
+    .upload(target, optimised, { contentType: 'image/jpeg', upsert: true, cacheControl: '31536000' });
+  if (upErr) throw new Error(`upload ${target}: ${upErr.message}`);
+  const { data } = adminClient.storage.from(env.supabase.publicBucket).getPublicUrl(target);
+  return { path: target, url: data.publicUrl, bytes: optimised.length };
+};
+
+/**
+ * Re-encodes existing advert and listing photos, a batch at a time (each call
+ * stays well inside the 30-second function limit). Originals are kept; only
+ * the links change. Returns how many were done and whether more remain.
+ */
+export const optimiseExisting = async ({ budgetMs = 20_000 } = {}) => {
+  if (!(await loadSharp())) throw new Error('Image optimisation is not available on this server.');
+  const started = Date.now();
+  let done = 0;
+  let failed = 0;
+
+  const { data: photos } = await adminClient
+    .from('advert_photos')
+    .select('id, url, storage_path')
+    .not('storage_path', 'like', `%${OPTIMISED_SUFFIX}`)
+    .limit(40);
+  for (const photo of photos ?? []) {
+    if (Date.now() - started > budgetMs) break;
+    const ref = storageRef(photo.url) ?? { bucket: env.supabase.publicBucket, path: photo.storage_path };
+    try {
+      const out = await reencode(ref);
+      await adminClient.from('advert_photos').update({ url: out.url, storage_path: out.path, bytes: out.bytes }).eq('id', photo.id);
+      done += 1;
+    } catch (error) {
+      failed += 1;
+      logger.warn('optimise.advert_photo_failed', { id: photo.id, error: error.message });
+      // Mark as handled so one broken file never blocks the queue.
+      await adminClient.from('advert_photos').update({ storage_path: `${photo.storage_path}#skip${OPTIMISED_SUFFIX}` }).eq('id', photo.id);
+    }
+  }
+
+  const { data: items } = await adminClient.from('items').select('id, images').not('images', 'is', null).limit(2000);
+  for (const item of items ?? []) {
+    if (Date.now() - started > budgetMs) break;
+    const images = Array.isArray(item.images) ? item.images : [];
+    if (!images.some((url) => storageRef(url) && !String(url).includes(OPTIMISED_SUFFIX) && !String(url).includes('#skip'))) continue;
+    const next = [];
+    for (const url of images) {
+      const ref = storageRef(url);
+      if (!ref || String(url).includes(OPTIMISED_SUFFIX) || String(url).includes('#skip')) {
+        next.push(url);
+        continue;
+      }
+      try {
+        next.push((await reencode(ref)).url);
+        done += 1;
+      } catch (error) {
+        failed += 1;
+        logger.warn('optimise.item_photo_failed', { id: item.id, error: error.message });
+        next.push(`${url}#skip`);
+      }
+    }
+    await adminClient.from('items').update({ images: next }).eq('id', item.id);
+  }
+
+  const timedOut = Date.now() - started > budgetMs;
+  return { done, failed, more: timedOut || done + failed > 0 };
 };
 
 /**
@@ -108,4 +229,5 @@ export const resolvePhotoUrls = async (photos = []) => {
   return photos.map((photo) => (signed.get(photo.id) ? { ...photo, url: signed.get(photo.id) } : photo));
 };
 
-export default { uploadImage, uploadDocument, removeFile, removeImage, resolvePhotoUrls };
+export default {
+  optimiseExisting, uploadImage, uploadDocument, removeFile, removeImage, resolvePhotoUrls };
