@@ -148,6 +148,28 @@ const AdminAdverts = () => {
     <>
       <PageHeader title="Adverts" description="Business adverts paid for by the photo. Approve paid adverts, check what customers see, and suspend anything that breaks the rules." />
 
+      {stats?.issues?.length > 0 && (
+        <div role="alert" className="mb-6 rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
+          <p className="font-medium">
+            {stats.issues.length} paid advert{stats.issues.length === 1 ? '' : 's'} could not be moved to Needs approval.
+          </p>
+          <ul className="mt-2 space-y-1">
+            {stats.issues.map((issue, index) => (
+              <li key={index} className="break-words">
+                {issue.advertId ? (
+                  <button type="button" className="font-medium underline" onClick={() => setOpenId(issue.advertId)}>
+                    Open advert
+                  </button>
+                ) : null}{' '}
+                <span className="mono text-xs">{issue.reference}</span> — {issue.error}
+                {issue.code ? ` (${issue.code})` : ''}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs">Send a screenshot of this box to your developer.</p>
+        </div>
+      )}
+
       {/* One strip of counts — each is also a filter. */}
       <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-3 lg:grid-cols-6">
         {[
@@ -295,6 +317,12 @@ const AdvertReview = ({ id, onClose, onChanged }) => {
               </a>
             )}
           </div>
+
+          {advert.payment_issue && (
+            <p role="alert" className="break-words rounded-lg bg-danger-soft p-3 text-sm text-danger">
+              This advert has a successful payment that could not be applied: {advert.payment_issue}
+            </p>
+          )}
 
           {advert.status === 'pending_review' && (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-100 bg-brand-50 p-4">

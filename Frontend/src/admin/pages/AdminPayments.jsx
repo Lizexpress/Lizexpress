@@ -29,7 +29,13 @@ const AdminPayments = () => {
       render: (row) => (
         <div className="min-w-0">
           <p className="truncate font-mono text-xs text-ink">{row.tx_ref}</p>
-          <p className="truncate text-2xs text-ink-faint">{row.item?.name ?? (row.advert ? `Advert: ${row.advert.title}` : 'Listing fee')}</p>
+          {row.advert_id ? (
+            <a href={`/admin/adverts?open=${row.advert_id}`} className="truncate text-2xs font-medium text-brand-600 hover:underline">
+              Advert: {row.advert?.title ?? 'open'} →
+            </a>
+          ) : (
+            <p className="truncate text-2xs text-ink-faint">{row.item?.name ?? 'Listing fee'}</p>
+          )}
         </div>
       ),
     },

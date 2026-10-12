@@ -528,7 +528,9 @@ export const activateAfterPayment = async ({ payment }) => {
  * successful advert payments — and run when the admin adverts screen or the
  * advertiser's dashboard loads.
  */
+let lastIssues = [];
 export const reconcile = async ({ userId } = {}) => {
+  const issues = [];
   try {
     const payments = (await paymentRepository.successfulForAdverts()).filter((row) => !userId || row.user_id === userId);
     if (!payments.length) return 0;
@@ -547,16 +549,24 @@ export const reconcile = async ({ userId } = {}) => {
       const paid = rows.reduce((sum, row) => sum + kobo(row.amount), 0);
       if (paid <= Number(advert.amount_paid_kobo ?? 0)) continue;
       const latest = rows[rows.length - 1];
-      const result = await applyPayments(advert.id, rows);
-      if (result.changed) {
-        fixed += 1;
-        await announcePayment({ advert: result.advert, payment: latest, live: result.live });
+      try {
+        const result = await applyPayments(advert.id, rows);
+        if (result.changed) {
+          fixed += 1;
+          await announcePayment({ advert: result.advert, payment: latest, live: result.live });
+        }
+      } catch (error) {
+        // Shown on the admin Adverts screen, so a stuck paid advert is never silent.
+        logger.error('advert.reconcile.advert_failed', { advertId: advert.id, error: error.message, code: error.code });
+        issues.push({ advertId: advert.id, reference: latest?.tx_ref, error: error.message, code: error.code ?? null });
       }
     }
     if (fixed) logger.info('advert.reconciled', { fixed });
+    if (!userId) lastIssues = issues;
     return fixed;
   } catch (error) {
-    logger.warn('advert.reconcile.failed', { error: error.message });
+    logger.error('advert.reconcile.failed', { error: error.message, code: error.code });
+    if (!userId) lastIssues = [{ advertId: null, error: error.message, code: error.code ?? null }];
     return 0;
   }
 };
@@ -619,9 +629,20 @@ export const lgas = (stateCode) => locationRepository.lgas(stateCode);
 export const adminList = async (filters) => withPhotosList(await advertRepository.listForAdmin(filters));
 
 export const adminDetail = async (advertId) => {
+  let paymentIssue = null;
+  try {
+    const result = await applyPayments(advertId);
+    if (result.changed) {
+      const payments = await paymentRepository.successfulForAdverts(advertId);
+      await announcePayment({ advert: result.advert, payment: payments[payments.length - 1], live: result.live });
+    }
+  } catch (error) {
+    logger.error('advert.admin_detail.apply_failed', { advertId, error: error.message, code: error.code });
+    paymentIssue = `${error.message}${error.code ? ` (${error.code})` : ''}`;
+  }
   const advert = await advertRepository.findById(advertId);
   if (!advert) throw NotFound('Advertisement not found.');
-  return withPhotos(advert);
+  return { ...(await withPhotos(advert)), payment_issue: paymentIssue };
 };
 
 export const adminSetStatus = async ({ advertId, status, reason, actorId, request }) => {
@@ -727,7 +748,7 @@ export const adminStats = async () => {
     count('suspended'),
     count('expired'),
   ]);
-  return { total, active, review, pending, suspended, expired };
+  return { total, active, review, pending, suspended, expired, issues: lastIssues };
 };
 
 /**

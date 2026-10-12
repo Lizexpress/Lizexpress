@@ -1,4 +1,5 @@
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { endpoints } from '../lib/api.js';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, ShieldCheck, Users, Package, CreditCard,
@@ -35,6 +36,14 @@ export const AdminLayout = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  // Paid adverts waiting for approval, shown on the sidebar so none are missed.
+  const [toApprove, setToApprove] = useState(0);
+  useEffect(() => {
+    const load = () => endpoints.admin.advertStats().then((stats) => setToApprove(Number(stats?.review) || 0)).catch(() => {});
+    load();
+    const timer = setInterval(load, 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const sidebar = (
     <nav className="flex h-full flex-col" aria-label="Admin">
@@ -61,6 +70,11 @@ export const AdminLayout = () => {
           >
             <entry.icon size={17} aria-hidden="true" />
             {entry.label}
+            {entry.to === '/admin/adverts' && toApprove > 0 && (
+              <span className="ml-auto rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-purple-700" aria-label={`${toApprove} to approve`}>
+                {toApprove}
+              </span>
+            )}
           </NavLink>
         ))}
       </div>
