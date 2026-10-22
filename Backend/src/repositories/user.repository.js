@@ -38,15 +38,24 @@ export const userRepository = {
   },
 
   async update(id, payload) {
-    return unwrap(
-      await db
-        .from('users')
-        .update({ ...compact(payload), updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .select(FULL_FIELDS)
-        .single(),
-      'update user',
-    );
+    const result = await db
+      .from('users')
+      .update({ ...compact(payload), updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select(FULL_FIELDS)
+      .maybeSingle();
+    if (result.error || result.data) return unwrap(result, 'update user');
+
+    // Some sign-ups have a login but no profile row (the old sign-up flow could
+    // stop half-way). Updating nothing used to fail with "JSON object
+    // requested, multiple (or no) rows returned" — e.g. when creating an
+    // advert. Create the missing profile from the login details instead.
+    const { data: auth } = await db.auth.admin.getUserById(id);
+    const meta = auth?.user?.user_metadata ?? {};
+    return this.upsertProfile(id, {
+      full_name: meta.full_name ?? meta.name ?? auth?.user?.email?.split('@')[0] ?? 'Member',
+      ...payload,
+    });
   },
 
   async touchLastSeen(id) {
